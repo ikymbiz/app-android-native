@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android App Builder</title>
+    <style>
+        :root { --primary: #3d5afe; --bg: #f5f7fb; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        h2 { margin-top: 0; color: #333; font-size: 1.5rem; border-bottom: 2px solid var(--primary); display: inline-block; }
+        .input-group { margin-top: 1.5rem; }
+        label { display: block; font-size: 0.85rem; color: #666; margin-bottom: 5px; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; margin-top: 2rem; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #304ffe; transform: translateY(-2px); }
+        #status { margin-top: 1rem; font-size: 0.9rem; text-align: center; color: #444; min-height: 1.2em; }
+        .links { margin-top: 1rem; text-align: center; display: none; }
+        a { color: var(--primary); text-decoration: none; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Android Builder</h2>
+    
+    <div class="input-group">
+        <label>アプリ名 (例: My Cool Game)</label>
+        <input type="text" id="appName" placeholder="My Awesome App">
+    </div>
+
+    <div class="input-group">
+        <label>パッケージID (例: com.user.app)</label>
+        <input type="text" id="appId" placeholder="com.example.app">
+    </div>
+
+    <div class="input-group">
+        <label>バージョン</label>
+        <input type="text" id="version" value="1.0.0">
+    </div>
+
+    <button id="runBuild">APKを作成する</button>
+
+    <div id="status"></div>
+    <div class="links" id="links">
+        <a href="https://github.com/あなたのユーザー名/リポジトリ名/actions" target="_blank">👉 ビルド状況をリアルタイムで見る</a>
+    </div>
+</div>
+
+<script>
+    const CONFIG = {
+        token: 'あなたのGITHUB_TOKEN',
+        owner: 'あなたのユーザー名',
+        repo: 'リポジトリ名'
+    };
+
+    document.getElementById('runBuild').onclick = async function() {
+        const btn = this;
+        const status = document.getElementById('status');
+        const links = document.getElementById('links');
+        
+        const payload = {
+            ref: 'main',
+            inputs: {
+                app_name: document.getElementById('appName').value || 'My App',
+                app_id: document.getElementById('appId').value || 'com.example.app',
+                version_name: document.getElementById('version').value || '1.0.0'
+            }
+        };
+
+        btn.disabled = true;
+        status.innerText = '🚀 サーバーに命令を送信中...';
+
+        try {
+            const res = await fetch(`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/actions/workflows/build-apk.yml/dispatches`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${CONFIG.token}`,
+                    'Accept': 'application/vnd.github+json',
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                status.innerHTML = '✅ <b>ビルドを開始しました！</b><br>約5分後にAPKが完成します。';
+                links.style.display = 'block';
+            } else {
+                status.innerText = '❌ 送信エラーが発生しました。';
+            }
+        } catch (e) {
+            status.innerText = '❌ 通信に失敗しました。';
+        } finally {
+            btn.disabled = false;
+        }
+    };
+</script>
+
+</body>
+</html>
