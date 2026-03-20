@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>APK変換コントロールパネル</title>
+</head>
+<body>
+    <h1>自分専用ビルドマシン</h1>
+    <button id="buildBtn">🚀 APKのビルドを開始する</button>
+    <p id="status"></p>
+
+    <script>
+        const GITHUB_TOKEN = 'あなたのトークン'; // ※注意：公開リポジトリには書かないこと
+        const OWNER = 'あなたのユーザー名';
+        const REPO = 'リポジトリ名';
+        const WORKFLOW_ID = 'build-apk.yml'; // 前に作ったファイル名
+
+        document.getElementById('buildBtn').onclick = async () => {
+            document.getElementById('status').innerText = '送信中...';
+            
+            const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_ID}/dispatches`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${GITHUB_TOKEN}`,
+                    'Accept': 'application/vnd.github+json',
+                },
+                body: JSON.stringify({ ref: 'main' }) // どのブランチで動かすか
+            });
+
+            if (res.ok) {
+                document.getElementById('status').innerText = '✅ ビルドを開始しました！GitHubのActionsタブを見てね。';
+            } else {
+                document.getElementById('status').innerText = '❌ エラーが発生しました。';
+            }
+        };
+    </script>
+</body>
+</html>
