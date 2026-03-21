@@ -209,7 +209,7 @@
 
         /* Download Area */
         #downloadArea { padding: 15px; text-align: center; background: var(--bg-surface); display: none; }
-        #downloadLink { color: var(--success); text-decoration: none; font-weight: bold; border: 1px solid var(--success); padding: 10px 20px; border-radius: 8px; display: inline-block; transition: 0.2s; }
+        #downloadLink { color: var(--success); text-decoration: none; font-weight: bold; border: 1px solid var(--success); padding: 10px 20px; border-radius: 8px; display: inline-block; transition: 0.2s; cursor: pointer; }
         #downloadLink:hover { background: rgba(78, 201, 176, 0.1); }
 
         /* Settings Overlay */
@@ -286,22 +286,22 @@
             <div class="form-group">
                 <label>アプリの表示名</label>
                 <input type="text" id="appName" placeholder="My App" value="My Packaged App">
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 6px 0 0 0;">アセット選択時に、index.htmlやREADMEから自動取得を試みます。</p>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 6px 0 0 0;">アセット選択時に、index.htmlやREADMEから自動取得されます。</p>
             </div>
             <div class="form-group">
                 <label>パッケージID (例: com.example.app)</label>
                 <div style="display: flex; gap: 8px;">
-                    <input type="text" id="appId" placeholder="com.example.pkgapp" value="com.example.pkgapp" style="flex-grow: 1;">
+                    <input type="text" id="appId" placeholder="com.myapp.a1b2c3d4" value="com.example.pkgapp" style="flex-grow: 1;">
                     <button type="button" class="btn btn-secondary btn-small" id="generateAppIdBtn">自動生成</button>
                 </div>
             </div>
             <div class="form-group">
                 <label>アプリアイコン (PNG推奨, 512x512)</label>
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <img id="appIconPreview" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23333'/%3E%3Ctext x='50' y='50' fill='%23777' font-size='24' dominant-baseline='middle' text-anchor='middle'%3EIcon%3C/text%3E%3C/svg%3E" alt="Icon" style="width: 48px; height: 48px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border);">
+                    <img id="appIconPreview" src="" alt="Icon" style="width: 48px; height: 48px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border); background: #fff;">
                     <input type="file" id="appIconInput" accept="image/png, image/jpeg" style="display: none;">
                     <button type="button" class="btn btn-secondary btn-small" id="selectIconBtn">画像を選択</button>
-                    <button type="button" class="btn btn-secondary btn-small" id="clearIconBtn" style="display: none; border-color: var(--error); color: var(--error);">削除</button>
+                    <button type="button" class="btn btn-secondary btn-small" id="clearIconBtn" style="display: none; border-color: var(--error); color: var(--error);">リセット</button>
                 </div>
             </div>
         </div>
@@ -309,7 +309,6 @@
         <div class="section" style="flex-grow: 1;">
             <h2 class="section-title">📁 Web Assets (www)</h2>
             
-            <!-- Webアセット取得元の選択 -->
             <div class="form-group" style="display: flex; gap: 20px; margin-bottom: 20px;">
                 <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-main);">
                     <input type="radio" name="sourceType" value="local" checked>
@@ -342,7 +341,7 @@
             <div id="githubSourceUI" style="display: none; background: var(--bg-surface); padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
                 <div class="form-group">
                     <label style="display: flex; justify-content: space-between; align-items: center;">
-                        取得元リポジトリ (同一アカウント内)
+                        対象リポジトリ (取得・デプロイ先)
                         <button class="btn btn-secondary btn-small" id="fetchSourceReposBtn" style="padding: 4px 8px; font-size: 0.75rem;">🔄 再取得</button>
                     </label>
                     <select id="sourceRepoSelect">
@@ -382,10 +381,10 @@
             </div>
             <div id="logConsole">
                 <div class="log-item">Ready. システムが起動しました。</div>
-                <div class="log-item log-war">⚠️ index.html がアセットのルートに含まれることを確認してください。</div>
+                <div class="log-item log-war">⚠️ index.html が選択ファイルに含まれることを確認してください。</div>
             </div>
             <div id="downloadArea">
-                <a href="#" id="downloadLink" target="_blank">📥 APKをダウンロード (Artifactsページへ)</a>
+                <a id="downloadLink">📥 APKをダウンロード</a>
             </div>
         </div>
     </div>
@@ -400,7 +399,7 @@
             <div class="section" style="border:none; padding: 0;">
                 <h2 class="section-title">🛠️ GitHub Connection</h2>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">
-                    デプロイ先のGitHubリポジトリ（Actionsが設定されているもの）を指定します。
+                    GitHub APIを利用するためのトークンを設定します。
                 </p>
 
                 <div class="form-group">
@@ -412,16 +411,6 @@
                 <div class="form-group" style="margin-top: 20px;">
                     <label>GitHub ユーザー名</label>
                     <input type="text" id="ghOwner" placeholder="トークン保存時に自動取得されます" readonly>
-                </div>
-
-                <div class="form-group">
-                    <label style="display: flex; justify-content: space-between; align-items: center;">
-                        デプロイ先リポジトリ
-                        <button class="btn btn-secondary btn-small" id="fetchReposBtn" style="padding: 4px 8px; font-size: 0.75rem;">🔄 再取得</button>
-                    </label>
-                    <select id="ghRepoSelect">
-                        <option value="">トークンを設定してください...</option>
-                    </select>
                 </div>
                 
                 <div class="form-group" style="margin-top: 40px;">
@@ -473,17 +462,13 @@
         try {
             if ('wakeLock' in navigator) {
                 wakeLock = await navigator.wakeLock.request('screen');
-                console.log('Wake Lock is active');
             }
-        } catch (err) {
-            console.warn(`Wake Lock Error: ${err.name}, ${err.message}`);
-        }
+        } catch (err) {}
     };
     const releaseWakeLock = async () => {
         if (wakeLock !== null) {
             await wakeLock.release();
             wakeLock = null;
-            console.log('Wake Lock released');
         }
     };
 
@@ -548,9 +533,73 @@
         });
     };
 
-    // --- アイコン設定 ---
+    // --- デフォルトアイコン動的生成 (アプリ名連動) ---
     let currentIconBase64 = '';
-    
+    let isCustomIcon = false;
+
+    const generateDynamicIcon = async (appName = '') => {
+        let text = '⚡';
+        const name = appName.trim();
+        if (name) {
+            const words = name.split(/\s+/);
+            if (words.length >= 2) {
+                text = (words[0].substring(0, 1) + words[1].substring(0, 1)).toUpperCase();
+            } else {
+                text = name.substring(0, 2).toUpperCase(); // 1単語なら最初の2文字
+            }
+        }
+
+        // 文字列からハッシュ値を生成し、テーマカラーを決定
+        let hash = 0;
+        for (let i = 0; i < (name || 'default').length; i++) {
+            hash = (name || 'default').charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const h = Math.abs(hash) % 360;
+        const s = 65;
+        const l = 45;
+        const bgColor = `hsl(${h}, ${s}%, ${l}%)`;
+        const bgColor2 = `hsl(${(h + 40) % 360}, ${s}%, ${l - 10}%)`;
+
+        const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'>
+            <defs>
+                <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="${bgColor}" />
+                    <stop offset="100%" stop-color="${bgColor2}" />
+                </linearGradient>
+            </defs>
+            <rect width='512' height='512' fill='url(#bg)'/>
+            <text x='256' y='340' font-size='240' font-family='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' font-weight='bold' fill='#ffffff' text-anchor='middle'>${text}</text>
+        </svg>`;
+
+        return new Promise((resolve) => {
+            const img = new Image();
+            const svgBlob = new Blob([svg], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(svgBlob);
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512; canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, 512, 512);
+                URL.revokeObjectURL(url);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.src = url;
+        });
+    };
+
+    const setDefaultIcon = async (appName = '', isClear = false) => {
+        const iconBase64 = await generateDynamicIcon(appName);
+        currentIconBase64 = iconBase64;
+        $('appIconPreview').src = currentIconBase64;
+        $('clearIconBtn').style.display = 'none';
+        $('appIconInput').value = '';
+        isCustomIcon = false;
+        await dbSave('app_icon', currentIconBase64);
+        await dbSave('app_icon_is_custom', false);
+        if (isClear) showToast('🔄 アイコンを初期化しました');
+    };
+
+    // --- アイコン設定 UI ---
     $('selectIconBtn').onclick = () => $('appIconInput').click();
     $('appIconInput').onchange = (e) => {
         const file = e.target.files[0];
@@ -560,52 +609,56 @@
             currentIconBase64 = ev.target.result;
             $('appIconPreview').src = currentIconBase64;
             $('clearIconBtn').style.display = 'inline-flex';
+            isCustomIcon = true;
             await dbSave('app_icon', currentIconBase64);
+            await dbSave('app_icon_is_custom', true);
             showToast('✅ アプリアイコンを保存しました');
         };
         reader.readAsDataURL(file);
     };
 
-    $('clearIconBtn').onclick = async () => {
-        currentIconBase64 = '';
-        $('appIconPreview').src = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23333'/%3E%3Ctext x='50' y='50' fill='%23777' font-size='24' dominant-baseline='middle' text-anchor='middle'%3EIcon%3C/text%3E%3C/svg%3E";
-        $('clearIconBtn').style.display = 'none';
-        $('appIconInput').value = '';
-        await dbSave('app_icon', '');
-        showToast('🗑️ アイコンをクリアしました');
-    };
+    $('clearIconBtn').onclick = () => setDefaultIcon($('appName').value, true);
 
-    // --- パッケージID自動生成 ---
+    // --- パッケージID自動生成 (ハッシュ付きでわかりにくく) ---
     $('generateAppIdBtn').onclick = async () => {
-        const name = $('appName').value.trim() || 'my app';
+        const name = $('appName').value.trim() || 'myapp';
         const base = name.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
         const hash = Math.random().toString(36).substring(2, 10);
         const newId = `com.example.${base || 'app'}.${hash}`;
         $('appId').value = newId;
         await dbSave('app_id', newId);
-        showToast(`🎲 パッケージIDを生成しました: ${newId}`);
+        showToast(`🎲 パッケージIDを自動生成しました`);
     };
 
     // --- アプリ表示名自動取得ロジック ---
     const trySetAppName = async (name) => {
         if (!name) return;
-        $('appName').value = name;
-        await dbSave('app_name', name);
-        showToast(`📝 アプリ表示名を「${name}」に自動設定しました`);
+        const currentName = $('appName').value;
+        if (currentName !== name) {
+            $('appName').value = name;
+            await dbSave('app_name', name);
+            showToast(`📝 アプリ表示名を「${name}」に自動設定しました`);
+            
+            // ユーザーが手動でアイコンを設定していなければ、名前に基づき再生成
+            if (!isCustomIcon) {
+                await setDefaultIcon(name);
+            }
+        }
     };
 
     const extractAppNameFromLocal = async (files) => {
-        const indexHtml = Array.from(files).find(f => f.name.toLowerCase() === 'index.html');
+        const fileArr = Array.from(files);
+        const indexHtml = fileArr.find(f => f.name.toLowerCase() === 'index.html' && (f.webkitRelativePath.split('/').length <= 2));
         if (indexHtml) {
             const text = await indexHtml.text();
             const match = text.match(/<title>([^<]*)<\/title>/i);
             if (match && match[1].trim()) return match[1].trim();
         }
-        const readme = Array.from(files).find(f => f.name.toLowerCase() === 'readme.md' || f.name.toLowerCase() === 'readme.txt');
+        const readme = fileArr.find(f => (f.name.toLowerCase() === 'readme.md' || f.name.toLowerCase() === 'readme.txt') && (f.webkitRelativePath.split('/').length <= 2));
         if (readme) {
             const text = await readme.text();
             const lines = text.split('\n');
-            const firstLine = lines.find(l => l.trim().length > 0);
+            const firstLine = lines.find(l => l.trim().length > 0 && !l.trim().startsWith('<!--'));
             if (firstLine) return firstLine.replace(/^#+\s*/, '').trim();
         }
         return null;
@@ -616,18 +669,25 @@
         const appName = await dbGet('app_name');
         const appId = await dbGet('app_id');
         const appIcon = await dbGet('app_icon');
+        const customFlag = await dbGet('app_icon_is_custom');
         const token = await dbGet('gh_token');
         const owner = await dbGet('gh_owner');
         const sourceType = await dbGet('source_type') || 'local';
         const sourceRepoPath = await dbGet('source_repo_path');
         
+        isCustomIcon = customFlag === true;
+
         if (appName) $('appName').value = appName;
         if (appId) $('appId').value = appId;
+        
         if (appIcon) {
             currentIconBase64 = appIcon;
             $('appIconPreview').src = appIcon;
-            $('clearIconBtn').style.display = 'inline-flex';
+            if (isCustomIcon) $('clearIconBtn').style.display = 'inline-flex';
+        } else {
+            await setDefaultIcon($('appName').value);
         }
+
         if (sourceRepoPath) $('sourceRepoPath').value = sourceRepoPath;
 
         const radio = document.querySelector(`input[name="sourceType"][value="${sourceType}"]`);
@@ -645,21 +705,31 @@
         }
     };
 
-    ['appName', 'appId'].forEach(id => {
-        $(id).addEventListener('change', async (e) => {
-            const val = e.target.value.trim();
-            if(id === 'appId' && val && !/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+[0-9a-z_]$/i.test(val)){
-                showToast('⚠️ パッケージIDの形式が不正です (例: com.example.app)');
-                return;
-            }
-            await dbSave(id === 'appName' ? 'app_name' : 'app_id', val);
-        });
+    $('appName').addEventListener('change', async (e) => {
+        const val = e.target.value.trim();
+        await dbSave('app_name', val);
+        if (!isCustomIcon) {
+            await setDefaultIcon(val);
+        }
+    });
+
+    $('appId').addEventListener('change', async (e) => {
+        const val = e.target.value.trim();
+        if(val && !/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+[0-9a-z_]$/i.test(val)){
+            showToast('⚠️ パッケージIDの形式が不正です (例: com.example.app)');
+            return;
+        }
+        await dbSave('app_id', val);
     });
 
     $('sourceRepoSelect').addEventListener('change', async (e) => {
-        await dbSave('source_repo_name', e.target.value);
+        const repo = e.target.value;
+        await dbSave('source_repo_name', repo);
+        await dbSave('gh_repo', repo); 
         clearGhFileList();
+        if(repo) showToast(`✅ 対象リポジトリを設定しました`);
     });
+    
     $('sourceRepoPath').addEventListener('input', async (e) => {
         await dbSave('source_repo_path', e.target.value);
         clearGhFileList();
@@ -686,11 +756,11 @@
     async function ghApi(path, method = 'GET', body = null) {
         const token = await dbGet('gh_token');
         const owner = await dbGet('gh_owner');
-        const repo = await dbGet('gh_repo');
+        const repo = await dbGet('source_repo_name'); 
         
         let url = `https://api.github.com${path}`;
         if (!path.startsWith('/user') && !path.startsWith('/repos/')) {
-            if (!owner || !repo) throw new Error('GitHub設定が未完了です。設定画面でリポジトリを選択してください。');
+            if (!owner || !repo) throw new Error('GitHubリポジトリが選択されていません。');
             url = `https://api.github.com/repos/${owner}/${repo}${path}`;
         }
 
@@ -746,55 +816,36 @@
         const owner = await dbGet('gh_owner');
         if (!token || !owner) return;
 
-        const repoSelect = $('ghRepoSelect');
         const sourceRepoSelect = $('sourceRepoSelect');
-        
-        const savedRepo = await dbGet('gh_repo');
         const savedSourceRepo = await dbGet('source_repo_name');
 
         try {
-            repoSelect.innerHTML = '<option value="">⏳ リポジトリを取得中...</option>';
             sourceRepoSelect.innerHTML = '<option value="">⏳ リポジトリを取得中...</option>';
-            
             const repos = await ghApi('/user/repos?per_page=100&sort=updated');
-            
-            repoSelect.innerHTML = '<option value="">リポジトリを選択してください...</option>';
             sourceRepoSelect.innerHTML = '<option value="">リポジトリを選択してください...</option>';
             
             repos.forEach(repo => {
-                const opt1 = document.createElement('option');
-                opt1.value = repo.name; opt1.text = repo.name;
-                if (repo.name === savedRepo) opt1.selected = true;
-                repoSelect.appendChild(opt1);
-                
                 const opt2 = document.createElement('option');
                 opt2.value = repo.name; opt2.text = repo.name;
                 if (repo.name === savedSourceRepo) opt2.selected = true;
                 sourceRepoSelect.appendChild(opt2);
             });
         } catch (e) {
-            repoSelect.innerHTML = '<option value="">❌ 取得エラー</option>';
             sourceRepoSelect.innerHTML = '<option value="">❌ 取得エラー</option>';
             log(`❌ リポジトリ取得失敗: ${e.message}`, 'log-err');
         }
     }
 
-    $('fetchReposBtn').onclick = fetchRepositories;
     $('fetchSourceReposBtn').onclick = fetchRepositories;
-    
-    $('ghRepoSelect').addEventListener('change', async (e) => {
-        if(e.target.value) {
-            await dbSave('gh_repo', e.target.value);
-            showToast(`✅ デプロイ先リポジトリを設定しました`);
-        }
-    });
 
     $('clearSettingsBtn').onclick = async () => {
         if(confirm('すべての設定と保存データを初期化します。よろしいですか？')) {
             await dbClear();
             $('ghToken').value = ''; $('ghOwner').value = '';
-            $('ghRepoSelect').innerHTML = '<option value="">トークンを設定してください...</option>';
+            $('appName').value = 'My Packaged App';
+            $('appId').value = 'com.example.pkgapp';
             $('sourceRepoSelect').innerHTML = '<option value="">設定(⚙️)からトークンを保存してください...</option>';
+            await setDefaultIcon($('appName').value);
             showToast('🗑️ 設定を初期化しました');
         }
     };
@@ -806,7 +857,7 @@
     const localFileControls = $('localFileControls');
     let selectedFiles = [];
 
-    const handleFiles = (files) => {
+    const handleFiles = async (files) => {
         selectedFiles = Array.from(files);
         fileListArea.innerHTML = '';
         if (selectedFiles.length > 0) {
@@ -826,13 +877,13 @@
                     <span class="file-size">${formatBytes(file.size)}</span>
                 `;
                 fileListArea.appendChild(item);
-                if (file.name === 'index.html') hasIndexHtml = true;
+                if (file.name.toLowerCase() === 'index.html') hasIndexHtml = true;
             });
             showToast(`📁 ${selectedFiles.length}個のファイルを選択しました`);
             if (!hasIndexHtml) log('⚠️ 警告: index.html が含まれていません。アプリが正常に起動しない可能性があります。', 'log-war');
             
-            // アプリ表示名の自動取得
-            extractAppNameFromLocal(files).then(name => trySetAppName(name));
+            const name = await extractAppNameFromLocal(files);
+            trySetAppName(name);
         } else {
             fileListArea.style.display = 'none';
             localFileControls.style.display = 'none';
@@ -864,7 +915,7 @@
         let path = $('sourceRepoPath').value.trim();
         if (path.startsWith('/')) path = path.substring(1);
         
-        if (!repo || !owner) return showToast('⚠️ 取得元のリポジトリを選択してください');
+        if (!repo || !owner) return showToast('⚠️ 対象のリポジトリを選択してください');
 
         const btn = $('fetchGhFilesBtn');
         btn.disabled = true; btn.innerText = '⏳ 取得中...';
@@ -898,27 +949,31 @@
                 });
                 showToast(`✅ ${items.length}件のアイテムを取得しました`);
 
-                // アプリ表示名の自動取得 (非同期実行)
+                // アプリ表示名の自動取得
                 (async () => {
+                    let extractedName = null;
                     let indexHtml = items.find(i => i.name.toLowerCase() === 'index.html');
                     if (indexHtml) {
                         try {
                             const res = await ghApi(`/repos/${owner}/${repo}/contents/${indexHtml.path}`);
                             const text = decodeURIComponent(escape(atob(res.content)));
                             const match = text.match(/<title>([^<]*)<\/title>/i);
-                            if (match && match[1].trim()) return trySetAppName(match[1].trim());
+                            if (match && match[1].trim()) extractedName = match[1].trim();
                         } catch(e){}
                     }
-                    let readme = items.find(i => i.name.toLowerCase() === 'readme.md' || i.name.toLowerCase() === 'readme.txt');
-                    if (readme) {
-                        try {
-                            const res = await ghApi(`/repos/${owner}/${repo}/contents/${readme.path}`);
-                            const text = decodeURIComponent(escape(atob(res.content)));
-                            const lines = text.split('\n');
-                            const firstLine = lines.find(l => l.trim().length > 0);
-                            if (firstLine) return trySetAppName(firstLine.replace(/^#+\s*/, '').trim());
-                        } catch(e){}
+                    if(!extractedName) {
+                        let readme = items.find(i => i.name.toLowerCase() === 'readme.md' || i.name.toLowerCase() === 'readme.txt');
+                        if (readme) {
+                            try {
+                                const res = await ghApi(`/repos/${owner}/${repo}/contents/${readme.path}`);
+                                const text = decodeURIComponent(escape(atob(res.content)));
+                                const lines = text.split('\n');
+                                const firstLine = lines.find(l => l.trim().length > 0 && !l.trim().startsWith('<!--'));
+                                if (firstLine) extractedName = firstLine.replace(/^#+\s*/, '').trim();
+                            } catch(e){}
+                        }
                     }
+                    if(extractedName) trySetAppName(extractedName);
                 })();
             } else {
                 clearGhFileList();
@@ -954,10 +1009,6 @@ on:
         description: '取得元 (local / github)'
         default: 'local'
         required: true
-      source_repo:
-        description: 'GitHubリポジトリ (owner/repo)'
-        default: ''
-        required: false
       source_path:
         description: 'アセットのパス'
         default: '/'
@@ -967,7 +1018,7 @@ on:
         default: ''
         required: false
       app_icon_base64:
-        description: 'アプリアイコン (Base64)'
+        description: 'アプリアイコン (Base64 PNG)'
         default: ''
         required: false
 
@@ -988,8 +1039,7 @@ jobs:
           echo '{
             "name": "web-to-native-app",
             "version": "1.0.0",
-            "description": "Auto-generated project for Capacitor dependencies",
-            "license": "MIT",
+            "description": "Auto-generated project",
             "dependencies": {
               "@capacitor/core": "^5.0.0",
               "@capacitor/android": "^5.0.0"
@@ -1014,7 +1064,6 @@ jobs:
         if: github.event.inputs.source_type == 'github'
         uses: actions/checkout@v4
         with:
-          repository: \${{ github.event.inputs.source_repo }}
           path: source_repo_temp
 
       - name: Copy Web Assets (GitHub)
@@ -1113,7 +1162,7 @@ jobs:
                 showToast('⚠️ パッケージに含めるファイルが選択されていません。'); return; 
             }
         } else if (sourceType === 'github') {
-            if (!sourceRepo) { showToast('⚠️ 取得元のGitHubリポジトリを選択してください。'); return; }
+            if (!sourceRepo) { showToast('⚠️ 対象リポジトリを選択してください。'); return; }
             if (ghSelectedFilesData.length > 0) {
                 const checkedCbs = Array.from(document.querySelectorAll('.gh-file-cb:checked'));
                 if (checkedCbs.length === 0) {
@@ -1123,11 +1172,10 @@ jobs:
             }
         }
 
-        const repo = await dbGet('gh_repo');
         const token = await dbGet('gh_token');
-        if (!token || !repo) { 
-            showToast('⚠️ 設定画面(⚙️)からGitHub設定を完了してください。');
-            $('settingsOverlay').classList.add('active'); return; 
+        if (!token || !sourceRepo) { 
+            showToast('⚠️ 対象リポジトリ(取得・デプロイ先)を設定してください。');
+            return; 
         }
         
         const btn = $('deployBtn');
@@ -1197,7 +1245,6 @@ jobs:
                     app_name: appName, 
                     app_id: appId,
                     source_type: sourceType,
-                    source_repo: sourceType === 'github' ? `${owner}/${sourceRepo}` : '',
                     source_path: sourceType === 'github' ? sourcePath : '/',
                     selected_files: selectedGhPaths,
                     app_icon_base64: pureBase64Icon
@@ -1248,7 +1295,7 @@ jobs:
                     targetRun = runsData.workflow_runs.find(run => new Date(run.created_at) >= startTime);
                     if (targetRun) {
                         foundRunId = targetRun.id;
-                        log(`🚀 ワークフローの実行を検知しました！ <a href="${targetRun.html_url}" target="_blank" style="color:var(--primary);">ブラウザで詳細を確認</a>`);
+                        log(`🚀 ワークフローの実行を検知しました！`);
                     } else {
                         if(searchAttempts % 3 === 0) log('⏳ 実行開始を待機中... (GitHub Actions側の反映待ち)');
                         searchAttempts++;
@@ -1270,7 +1317,23 @@ jobs:
                     if (targetRun.conclusion === 'success') {
                         log('🎉 Android APKのビルドが完了しました！', 'log-suc');
                         setStatus('status-success', 'Build Success');
-                        $('downloadLink').href = `${targetRun.html_url}#artifacts`;
+                        
+                        log('📥 ダウンロードリンクを取得中...');
+                        try {
+                            const artifactsRes = await ghApi(`/actions/runs/${targetRun.id}/artifacts`);
+                            if (artifactsRes && artifactsRes.artifacts && artifactsRes.artifacts.length > 0) {
+                                const apkArtifact = artifactsRes.artifacts.find(a => a.name.includes('APK')) || artifactsRes.artifacts[0];
+                                $('downloadLink').dataset.downloadUrl = apkArtifact.archive_download_url;
+                                $('downloadLink').href = '#';
+                            } else {
+                                $('downloadLink').dataset.downloadUrl = '';
+                                $('downloadLink').href = `${targetRun.html_url}#artifacts`;
+                            }
+                        } catch(err) {
+                            $('downloadLink').dataset.downloadUrl = '';
+                            $('downloadLink').href = `${targetRun.html_url}#artifacts`;
+                        }
+                        
                         $('downloadArea').style.display = 'block';
                         showToast('✅ APKのダウンロード準備ができました');
                     } else {
@@ -1291,6 +1354,49 @@ jobs:
             }
         }, 10000);
     }
+
+    // --- 直接ダウンロード処理 ---
+    $('downloadLink').onclick = async (e) => {
+        const url = $('downloadLink').dataset.downloadUrl;
+        if (!url) return; // href fallback
+        
+        e.preventDefault();
+        const token = await dbGet('gh_token');
+        const btn = $('downloadLink');
+        const origText = btn.innerText;
+        
+        try {
+            btn.innerText = '⏳ ダウンロード中...';
+            btn.style.pointerEvents = 'none';
+            showToast('⏳ APKのダウンロードを開始しています...');
+
+            const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` }});
+            if (!res.ok) throw new Error('Download request failed');
+            
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = `${$('appName').value || 'app'}-release.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+
+            btn.innerText = origText;
+            btn.style.pointerEvents = 'auto';
+            showToast('✅ ダウンロードが完了しました');
+        } catch(err) {
+            console.error(err);
+            showToast('❌ 直接ダウンロードに失敗しました。Actionsページを開きます。');
+            btn.innerText = origText;
+            btn.style.pointerEvents = 'auto';
+            // fetch失敗時はActionsページを開くようフォールバック
+            const owner = await dbGet('gh_owner');
+            const repo = await dbGet('source_repo_name');
+            window.open(`https://github.com/${owner}/${repo}/actions`, '_blank');
+        }
+    };
 
     // 初期化
     window.addEventListener('DOMContentLoaded', loadSettings);
