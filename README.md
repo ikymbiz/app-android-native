@@ -1,90 +1,95 @@
+
 # ⚡ Native App Packager
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat&logo=html5&logoColor=white)]()
+[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black)]()
+[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat&logo=github-actions&logoColor=white)]()
 
-**Native App Packager** は、ブラウザ上で完結する Web to Android App ビルドツールです。
-ローカルに Android Studio や Node.js などの複雑な開発環境を構築することなく、HTML/CSS/JS の Web アセットから直接ネイティブアプリ（APK）を生成します。
+**Webアプリケーション(HTML/CSS/JS)をブラウザ上の操作だけでAndroidネイティブアプリ(APK)に変換するツールです。**
 
-バックエンドインフラとして **GitHub Actions** と **Capacitor** を活用し、すべてクラウド上でビルド処理を行います。
+専用のバックエンドサーバーは一切不要。あなたのGitHubリポジトリとGitHub Actionsを活用して、クラウド上でセキュアかつ自動的にCapacitorビルドを実行します。
 
----
+![App Screenshot](./screenshot.png) <!-- 必要に応じてスクリーンショットのパスを変更してください -->
 
-## ✨ 主な機能
+## ✨ 主な機能 (Features)
 
-- 🌐 **ブラウザ完結型ビルド**: ローカル環境の構築不要。ブラウザだけで設定からAPKダウンロードまで完結。
-- ☁️ **クラウドビルドエンジン**: GitHub Actions を利用して、裏側で確実に Android アプリをビルド。
-- 📁 **柔軟なソース選択**:
-  - **ローカル**: PC内の HTML/CSS/JS フォルダをドラッグ＆ドロップで一括選択。
-  - **GitHub**: 指定したリポジトリの特定ディレクトリからソースを直接取得。
-- 🎨 **スマートなアイコン生成**: アプリ名から自動でアプリアイコンを生成する機能（カスタム画像のアップロードも可能）。
-- 🤖 **メタデータ自動推論**: `index.html` の `<title>` や `README.md` からアプリ名を自動抽出。
-- 📱 **PWA (Progressive Web App) 対応**: ツール自体をスマホやPCにインストールしてネイティブアプリのように利用可能。
-- 🔒 **セキュアな設定保存**: GitHub Token などの設定はブラウザの `IndexedDB` に安全に保存。
+- **🖥️ 完全ブラウザ完結 (SPA)**
+  - 複雑な環境構築は不要。ブラウザを開くだけですぐに利用可能です。
+  - PWAに対応しており、デスクトップやモバイル端末にインストールしてネイティブアプリのように使えます。
+- **📁 柔軟なアセット選択**
+  - **ローカルから:** フォルダごとドラッグ＆ドロップでアップロード可能。
+  - **GitHubから:** リポジトリ内の特定のディレクトリやファイルを選択して取り込むことが可能。
+- **⚙️ 自動構成・自動生成**
+  - `index.html` や `README.md` を解析し、アプリ表示名を自動取得。
+  - アプリ名に基づいたデフォルトの「ダイナミック・アプリアイコン」を自動生成（カスタム画像のアップロードも可能）。
+  - ランダムハッシュ付きのパッケージID（`com.example.app.xxxx`）をワンクリック生成。
+- **☁️ クラウドビルド (Powered by GitHub Actions)**
+  - アプリのソースコードと、Androidビルド用のワークフローファイル (`build-apk.yml`) を自動生成してリポジトリにプッシュ。
+  - 自動的にCapacitorを利用したビルドプロセスをトリガー。
+- **👀 リアルタイム監視と直接ダウンロード**
+  - GitHub Actionsの実行状況をブラウザ上のコンソールでリアルタイムにポーリング監視。
+  - ビルド成功後、生成されたAPKファイルをブラウザから直接ダウンロードできます。
+- **🔒 セキュアなデータ管理**
+  - GitHub APIトークン（PAT）や設定内容はブラウザの `IndexedDB` にのみ保存され、外部のサードパーティサーバーに送信されることはありません。
 
----
+## 🏗️ アーキテクチャと仕組み (How it works)
 
-## 🏗️ 仕組み (アーキテクチャ)
+1. **構成のパッケージング**: ブラウザ上でJSZipを利用し、選択されたWebアセットをZIP化します。
+2. **GitHub API連携**: 設定されたトークンを使用して、指定したリポジトリにZIPファイルとビルド用のGitHub Actionsワークフローファイルを直接コミットします。
+3. **ワークフロー実行 (`workflow_dispatch`)**: GitHub ActionsをAPI経由でトリガーします。
+4. **クラウドビルド (Capacitor)**: Actions上でNode.jsとJava環境がセットアップされ、アセットを展開後、Capacitorを用いてAndroidプロジェクト(`APK`)がビルドされます。
+5. **アーティファクトの取得**: ビルド完了後、GitHub ActionsのArtifactsからAPKを自動で取得し、ダウンロードリンクを提示します。
 
-このツールは、以下のフローで動作します。
+## 📋 前提条件 (Prerequisites)
 
-1. **設定・アセット準備**: ブラウザ上でアプリ設定（名前、ID、アイコン）と Web アセット（HTML/JS/CSS）を準備します。
-2. **GitHub API 連携**: 準備したアセットを ZIP 化し、あなたの GitHub リポジトリへ API 経由でプッシュします。
-3. **ワークフロー自動生成**: Android ビルド用の GitHub Actions ワークフロー（`.github/workflows/build-apk.yml`）を対象リポジトリに自動生成・コミットします。
-4. **Capacitor によるビルド**: GitHub Actions がトリガーされ、クラウド上で `Capacitor` を用いて Web アセットを Android プロジェクトに変換し、APK をビルドします。
-5. **ポーリング監視＆ダウンロード**: ブラウザから GitHub Actions の実行ステータスを監視し、成功すると生成された APK を直接ダウンロードします。
+このアプリを利用するには以下の準備が必要です。
 
----
+1. **GitHubアカウント**
+2. **作業用のGitHubリポジトリ** (空のリポジトリでも可)
+3. **GitHub Personal Access Token (PAT)**
+   - トークンにはリポジトリの読み書き (`repo` スコープ、または Fine-grained token で Contents と Actions の Read/Write 権限) が必要です。
 
-## 🚀 使い方
+## 🚀 使い方 (Getting Started)
 
-### 1. 前提条件
-- **GitHub アカウント**
-- **Personal Access Token (PAT)**: リポジトリの読み書き・Actions の実行権限（`repo`, `workflow`）を持つトークンが必要です。
-- **デプロイ用リポジトリ**: ビルド処理を実行するための空の（または既存の）GitHubリポジトリ。
+### 1. GitHub連携の設定
+1. 画面右上の歯車アイコン (⚙️) をクリックして設定を開きます。
+2. **GitHub PAT** を入力し、「💾 トークンを保存して接続」をクリックします。
+3. 認証が成功すると自動的にユーザー名が取得・保存されます。
 
-### 2. 初期セットアップ
-1. 右上の歯車アイコン（⚙️）をクリックして**設定**を開きます。
-2. GitHub PAT を入力し、「💾 トークンを保存して接続」をクリックします。
-3. 認証が成功すると、あなたのリポジトリ一覧が取得できるようになります。
+### 2. アプリの基本設定
+1. **アプリの表示名** と **パッケージID** を入力します。
+2. **アプリアイコン** を設定します（画像を選択しない場合は自動生成されます）。
 
-### 3. アプリケーションの設定
-- **アプリの表示名**: ホーム画面に表示される名前です。
-- **パッケージID**: `com.yourname.app` のような一意のIDを設定します（自動生成機能あり）。
-- **アプリアイコン**: 512x512 の PNG 画像をアップロードできます。指定しない場合は自動生成されます。
+### 3. Webアセットの選択
+- **ローカルの場合**: 「フォルダを選択」またはドラッグ＆ドロップで、`index.html` を含むWebプロジェクトのフォルダを読み込ませます。
+- **GitHubの場合**: 「対象リポジトリ」と「アセットのパス」を入力し、「📂 ファイル一覧を取得」をクリックして対象のファイルを選択します。
 
-### 4. ソースファイルの選択
-- **ローカルからアップロード**: `index.html` を含むフォルダをドラッグ＆ドロップ、または選択します。
-- **GitHubから選択**: 対象リポジトリとパス（例: `/dist`）を指定し、ファイルを取得・選択します。
+### 4. パッケージとデプロイ
+1. 「🚀 パッケージ & デプロイ」ボタンをクリックします。
+2. コンソール（Deployment Logs）に進行状況が表示されます。ブラウザを閉じずにお待ちください（※スリープ防止機能が自動で働きます）。
+3. ビルドが成功すると、コンソール下部に「📥 APKをダウンロード」ボタンが出現します。
 
-### 5. パッケージ＆デプロイ
-「🚀 パッケージ & デプロイ」ボタンをクリックします。
-画面下部のコンソールにリアルタイムで進行状況（アップロード、アクションのトリガー、ビルド状況）が表示されます。
+## 🛠️ 技術スタック (Tech Stack)
 
-### 6. ダウンロード
-ビルドが完了すると、「📥 APKをダウンロード」ボタンが出現します。クリックして Android 端末にインストールしてください。
+- **Frontend**: HTML5, CSS3 (CSS Variables), Vanilla JavaScript
+- **Libraries**: [JSZip](https://stuk.github.io/jszip/) (ZIPアーカイブ生成)
+- **APIs**: GitHub REST API v3, Web Storage API (IndexedDB), Screen Wake Lock API
+- **Build Tool (Cloud)**: GitHub Actions, Node.js, Java, [Capacitor](https://capacitorjs.com/)
 
----
+## ⚠️ 注意事項
 
-## 🛠️ 使用技術
+- ビルド対象のWebアセットには、必ずルートまたは指定ディレクトリ直下に `index.html` が含まれている必要があります。
+- 無料枠のGitHub Actionsを利用する場合、使用時間制限にご注意ください。
+- 大量のファイルや極端に巨大な動画・画像ファイルをアップロードすると、ブラウザのメモリ制限やGitHub APIの制限に引っかかる可能性があります。
 
-- **フロントエンド**: HTML5, CSS3, Vanilla JavaScript
-- **ライブラリ**: [JSZip](https://stuk.github.io/jszip/) (クライアントサイドのZIP圧縮)
-- **ビルドツール**: [Capacitor](https://capacitorjs.com/) (@capacitor/core, @capacitor/android)
-- **CI/CD**: GitHub Actions, GitHub REST API
-- **ストレージ**: IndexedDB API
-- **その他**: Wake Lock API (ビルド中のスリープ防止)
+## 📄 ライセンス (License)
 
----
+このプロジェクトは [MIT License](LICENSE) のもとで公開されています。自由に複製、改変、配布が可能です。
+```
 
-## ⚠️ 注意事項と制限事項
-
-- **`index.html` の必須性**: 選択したソース群のルート、または対象ディレクトリの直下に必ず `index.html` が存在する必要があります。存在しない場合、ビルドされたアプリが白画面になります。
-- **GitHub Actions の利用枠**: 無料枠のアカウントを使用している場合、GitHub Actions の月間無料実行時間（通常2000分）を消費します。
-- **トークンの管理**: GitHub PAT はブラウザのローカルデータベース(IndexedDB)にのみ保存され、外部サーバーへは送信されません。ただし、共有PCでの利用には注意してください。
-
----
-
-## 📄 ライセンス
-
-このプロジェクトは [MIT License](LICENSE) のもとで公開されています。自由に改変・再配布が可能です。
+### 💡 README作成のポイント・工夫した点
+1. **視覚的な魅力アップ:** バッジ（Shields.io）と絵文字を適度に使用し、モダンで親しみやすいドキュメントにしました。
+2. **ユーザーの不安を払拭:** バックエンドサーバーが存在せず、GitHubの機能だけで完結する点や、トークンがIndexedDBに安全に保存される仕組み（セキュリティ面）を強調しました。
+3. **仕組み（How it works）の明文化:** フロントエンドのコードからどのようにしてAndroid APKが生まれるのか、その魔法のようなプロセスの種明かしをステップバイステップで記述しました。
+4. **分かりやすい導入手順:** ユーザーが迷わずにセットアップからビルド完了まで進めるよう、UIに沿った手順を記載しました。
