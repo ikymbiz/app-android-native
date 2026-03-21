@@ -137,7 +137,7 @@
             color: var(--text-main);
         }
         .btn-secondary:hover { background: #3a3a3a; }
-        .btn-small { padding: 8px 12px; font-size: 0.85rem; width: auto; display: inline-flex; }
+        .btn-small { padding: 6px 12px; font-size: 0.85rem; width: auto; display: inline-flex; }
 
         /* File Drop Zone */
         .file-drop-zone { 
@@ -157,10 +157,15 @@
         .file-drop-zone p { font-size: 0.9rem; color: var(--text-muted); margin: 0 0 20px 0; line-height: 1.4; }
         #fileInput { display: none; }
         
-        #fileList { margin-top: 15px; max-height: 150px; overflow-y: auto; font-size: 0.85rem; background: var(--bg-elevated); padding: 10px; border-radius: 8px; display: none;}
-        .file-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+        .file-list-area { margin-top: 10px; max-height: 200px; overflow-y: auto; font-size: 0.85rem; background: var(--bg-elevated); padding: 10px; border-radius: 8px; display: none; border: 1px solid var(--border); }
+        .file-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid var(--border); gap: 10px; }
         .file-item:last-child { border-bottom: none; }
-        .file-size { color: var(--text-muted); font-family: monospace; }
+        .file-item-left { display: flex; align-items: center; gap: 10px; flex-grow: 1; min-width: 0; }
+        .file-item-left input[type="checkbox"] { flex-shrink: 0; cursor: pointer; width: 16px; height: 16px; accent-color: var(--primary); }
+        .file-item-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
+        .file-size { color: var(--text-muted); font-family: monospace; flex-shrink: 0; }
+        
+        .file-controls { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 
         /* Console */
         .console-container {
@@ -289,15 +294,65 @@
 
         <div class="section" style="flex-grow: 1;">
             <h2 class="section-title">📁 Web Assets (www)</h2>
-            <div class="file-drop-zone" id="dropZone">
-                <h3>HTML/CSS/JS をアップロード</h3>
-                <p>フォルダ内の全ファイルをまとめて選択、<br>またはドラッグ＆ドロップしてください。</p>
-                <input type="file" id="fileInput" multiple accept=".html,.css,.js,.png,.jpg,.jpeg,.svg,.gif,.json,.webmanifest,.ico">
-                <button class="btn btn-secondary btn-small" type="button" id="selectFileBtn">ファイルを選択</button>
-            </div>
-            <div id="fileList"></div>
             
-            <div style="margin-top: 20px;">
+            <!-- Webアセット取得元の選択 -->
+            <div class="form-group" style="display: flex; gap: 20px; margin-bottom: 20px;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-main);">
+                    <input type="radio" name="sourceType" value="local" checked>
+                    ローカルからアップロード
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-main);">
+                    <input type="radio" name="sourceType" value="github">
+                    GitHubから選択
+                </label>
+            </div>
+
+            <!-- ローカルファイルアップロード UI -->
+            <div id="localSourceUI">
+                <div class="file-drop-zone" id="dropZone">
+                    <h3>HTML/CSS/JS をアップロード</h3>
+                    <p>フォルダ内の全ファイルをまとめて選択、<br>またはドラッグ＆ドロップしてください。</p>
+                    <input type="file" id="fileInput" multiple webkitdirectory directory>
+                    <button class="btn btn-secondary btn-small" type="button" id="selectFileBtn" style="margin-bottom: 8px;">フォルダを選択</button>
+                    <button class="btn btn-secondary btn-small" type="button" id="selectFileOnlyBtn">ファイルを選択</button>
+                </div>
+                
+                <div class="file-controls" id="localFileControls" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-small" id="localSelectAllBtn">☑ 全選択</button>
+                    <button type="button" class="btn btn-secondary btn-small" id="localDeselectAllBtn">☐ 全解除</button>
+                </div>
+                <div id="fileList" class="file-list-area"></div>
+            </div>
+
+            <!-- GitHubリポジトリ選択 UI -->
+            <div id="githubSourceUI" style="display: none; background: var(--bg-surface); padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
+                <div class="form-group">
+                    <label style="display: flex; justify-content: space-between; align-items: center;">
+                        取得元リポジトリ (同一アカウント内)
+                        <button class="btn btn-secondary btn-small" id="fetchSourceReposBtn" style="padding: 4px 8px; font-size: 0.75rem;">🔄 再取得</button>
+                    </label>
+                    <select id="sourceRepoSelect">
+                        <option value="">設定(⚙️)からトークンを保存してください...</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Webアセットのパス (例: / または /dist)</label>
+                    <input type="text" id="sourceRepoPath" placeholder="/" value="/">
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 6px 0 0 0;">指定したパス以下のファイル群を一覧取得して選択できます。</p>
+                </div>
+                
+                <div style="margin-top: 15px; text-align: right;">
+                    <button type="button" class="btn btn-secondary btn-small" id="fetchGhFilesBtn">📂 ファイル一覧を取得</button>
+                </div>
+                
+                <div class="file-controls" id="ghFileControls" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-small" id="ghSelectAllBtn">☑ 全選択</button>
+                    <button type="button" class="btn btn-secondary btn-small" id="ghDeselectAllBtn">☐ 全解除</button>
+                </div>
+                <div id="ghFileList" class="file-list-area"></div>
+            </div>
+            
+            <div style="margin-top: 25px;">
                 <button class="btn" id="deployBtn">🚀 パッケージ & デプロイ</button>
             </div>
         </div>
@@ -313,7 +368,7 @@
             </div>
             <div id="logConsole">
                 <div class="log-item">Ready. システムが起動しました。</div>
-                <div class="log-item log-war">⚠️ index.html がアセットに含まれていることを確認してください。</div>
+                <div class="log-item log-war">⚠️ index.html がアセットのルートに含まれることを確認してください。</div>
             </div>
             <div id="downloadArea">
                 <a href="#" id="downloadLink" target="_blank">📥 APKをダウンロード (Artifactsページへ)</a>
@@ -418,7 +473,7 @@
         }
     };
 
-    // --- PWA Setup (Service Worker & Manifest) ---
+    // --- PWA Setup ---
     const setupPWA = () => {
         const manifest = {
             name: "Native App Packager",
@@ -431,22 +486,6 @@
         const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
         const manifestUrl = URL.createObjectURL(manifestBlob);
         document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestUrl}">`);
-
-        const swCode = `
-            const CACHE_NAME = 'packager-v1';
-            self.addEventListener('install', e => self.skipWaiting());
-            self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-            self.addEventListener('fetch', e => {
-                if(e.request.url.startsWith('http')) {
-                    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-                }
-            });
-        `;
-        const swBlob = new Blob([swCode], { type: 'application/javascript' });
-        const swUrl = URL.createObjectURL(swBlob);
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register(swUrl).catch(err => console.log('SW Reg Failed:', err));
-        }
     };
     setupPWA();
 
@@ -501,9 +540,19 @@
         const appId = await dbGet('app_id');
         const token = await dbGet('gh_token');
         const owner = await dbGet('gh_owner');
+        const sourceType = await dbGet('source_type') || 'local';
+        const sourceRepoPath = await dbGet('source_repo_path');
         
         if (appName) $('appName').value = appName;
         if (appId) $('appId').value = appId;
+        if (sourceRepoPath) $('sourceRepoPath').value = sourceRepoPath;
+
+        const radio = document.querySelector(`input[name="sourceType"][value="${sourceType}"]`);
+        if (radio) {
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change'));
+        }
+
         if (token) {
             $('ghToken').value = token;
             if (owner) {
@@ -513,7 +562,6 @@
         }
     };
 
-    // App Configの自動保存
     ['appName', 'appId'].forEach(id => {
         $(id).addEventListener('change', async (e) => {
             const val = e.target.value.trim();
@@ -522,6 +570,29 @@
                 return;
             }
             await dbSave(id === 'appName' ? 'app_name' : 'app_id', val);
+        });
+    });
+
+    $('sourceRepoSelect').addEventListener('change', async (e) => {
+        await dbSave('source_repo_name', e.target.value);
+        clearGhFileList();
+    });
+    $('sourceRepoPath').addEventListener('input', async (e) => {
+        await dbSave('source_repo_path', e.target.value);
+        clearGhFileList();
+    });
+
+    document.querySelectorAll('input[name="sourceType"]').forEach(radio => {
+        radio.addEventListener('change', async (e) => {
+            const val = e.target.value;
+            if (val === 'local') {
+                $('localSourceUI').style.display = 'block';
+                $('githubSourceUI').style.display = 'none';
+            } else {
+                $('localSourceUI').style.display = 'none';
+                $('githubSourceUI').style.display = 'block';
+            }
+            await dbSave('source_type', val);
         });
     });
 
@@ -535,7 +606,7 @@
         const repo = await dbGet('gh_repo');
         
         let url = `https://api.github.com${path}`;
-        if (!path.startsWith('/user')) {
+        if (!path.startsWith('/user') && !path.startsWith('/repos/')) {
             if (!owner || !repo) throw new Error('GitHub設定が未完了です。設定画面でリポジトリを選択してください。');
             url = `https://api.github.com/repos/${owner}/${repo}${path}`;
         }
@@ -547,70 +618,43 @@
             'Content-Type': 'application/json'
         };
 
-        try {
-            const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : null });
-            
-            if (!res.ok) {
-                let errorDetails = `HTTP Status: ${res.status}`;
-                try {
-                    const errData = await res.json();
-                    errorDetails += ` - API Message: ${errData.message || JSON.stringify(errData)}`;
-                    if (res.status === 401 || res.status === 403) {
-                         errorDetails += ' (🔑 GitHub PATの権限、有効期限、またはユーザー名を確認してください)';
-                    } else if (res.status === 404) {
-                         errorDetails += ' (🔍 リソースが見つかりません。リポジトリパスやファイルの存在を確認してください)';
-                    }
-                } catch (parseError) {
-                    const text = await res.text();
-                    errorDetails += ` - Response Text: ${text.substring(0, 200)}... (JSON parse failed)`;
-                }
-                throw new Error(errorDetails);
+        const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : null });
+        
+        if (!res.ok) {
+            let errorDetails = `HTTP Status: ${res.status}`;
+            try {
+                const errData = await res.json();
+                errorDetails += ` - API Message: ${errData.message || JSON.stringify(errData)}`;
+            } catch (e) {
+                errorDetails += ` - Response Text: ${await res.text()}`;
             }
-            return res.status === 204 ? null : res.json();
-            
-        } catch (e) {
-            console.error('[ghApi Error]', e);
-            if (e.message.includes('Failed to fetch') || e.name === 'TypeError') {
-                throw new Error(`ネットワークエラーが発生しました。インターネット接続やブラウザの拡張機能/プロキシ設定を確認してください。\n詳細: ${e.message}`);
-            }
-            throw e; 
+            throw new Error(errorDetails);
         }
+        return res.status === 204 ? null : res.json();
     }
 
     $('saveTokenBtn').onclick = async () => {
         const token = $('ghToken').value.trim();
-        if (!token) {
-            showToast('⚠️ トークンを入力してください');
-            return;
-        }
+        if (!token) return showToast('⚠️ トークンを入力してください');
         
         const btn = $('saveTokenBtn');
-        btn.disabled = true;
-        btn.innerText = '⏳ 検証中...';
+        btn.disabled = true; btn.innerText = '⏳ 検証中...';
         
         try {
             await dbSave('gh_token', token);
-            // ユーザー名を自動取得
             const res = await fetch('https://api.github.com/user', { headers: { 'Authorization': `Bearer ${token}` }});
-            
             if (!res.ok) throw new Error('無効なトークンか権限不足です');
-            
             const userData = await res.json();
-            const owner = userData.login;
-            $('ghOwner').value = owner;
-            await dbSave('gh_owner', owner);
-            
-            showToast(`✅ 認証成功: ${owner}`);
+            $('ghOwner').value = userData.login;
+            await dbSave('gh_owner', userData.login);
+            showToast(`✅ 認証成功: ${userData.login}`);
             await fetchRepositories(); 
-            
         } catch(e) {
             showToast(`❌ エラー: ${e.message}`);
             log(`❌ 認証エラー: ${e.message}`, 'log-err');
-            log('💡 詳細なエラー情報を確認するには、ブラウザの開発者ツール (F12) を開き、「Network」タブを確認してください。', 'log-war');
             await dbSave('gh_token', ''); 
         } finally {
-            btn.disabled = false;
-            btn.innerText = '💾 トークンを保存して接続';
+            btn.disabled = false; btn.innerText = '💾 トークンを保存して接続';
         }
     };
 
@@ -620,58 +664,63 @@
         if (!token || !owner) return;
 
         const repoSelect = $('ghRepoSelect');
-        const btn = $('fetchReposBtn');
+        const sourceRepoSelect = $('sourceRepoSelect');
+        
         const savedRepo = await dbGet('gh_repo');
+        const savedSourceRepo = await dbGet('source_repo_name');
 
         try {
-            btn.disabled = true;
             repoSelect.innerHTML = '<option value="">⏳ リポジトリを取得中...</option>';
+            sourceRepoSelect.innerHTML = '<option value="">⏳ リポジトリを取得中...</option>';
             
             const repos = await ghApi('/user/repos?per_page=100&sort=updated');
             
             repoSelect.innerHTML = '<option value="">リポジトリを選択してください...</option>';
-            repos.forEach(repo => {
-                const opt = document.createElement('option');
-                opt.value = repo.name;
-                opt.text = repo.name;
-                if (repo.name === savedRepo) opt.selected = true;
-                repoSelect.appendChild(opt);
-            });
-            showToast('🔄 リポジトリ一覧を更新しました');
+            sourceRepoSelect.innerHTML = '<option value="">リポジトリを選択してください...</option>';
             
+            repos.forEach(repo => {
+                const opt1 = document.createElement('option');
+                opt1.value = repo.name; opt1.text = repo.name;
+                if (repo.name === savedRepo) opt1.selected = true;
+                repoSelect.appendChild(opt1);
+                
+                const opt2 = document.createElement('option');
+                opt2.value = repo.name; opt2.text = repo.name;
+                if (repo.name === savedSourceRepo) opt2.selected = true;
+                sourceRepoSelect.appendChild(opt2);
+            });
         } catch (e) {
             repoSelect.innerHTML = '<option value="">❌ 取得エラー</option>';
+            sourceRepoSelect.innerHTML = '<option value="">❌ 取得エラー</option>';
             log(`❌ リポジトリ取得失敗: ${e.message}`, 'log-err');
-            log('💡 詳細なエラー情報を確認するには、ブラウザの開発者ツール (F12) を開き、「Network」タブを確認してください。', 'log-war');
-        } finally {
-            btn.disabled = false;
         }
     }
 
     $('fetchReposBtn').onclick = fetchRepositories;
+    $('fetchSourceReposBtn').onclick = fetchRepositories;
     
     $('ghRepoSelect').addEventListener('change', async (e) => {
-        const val = e.target.value;
-        if(val) {
-            await dbSave('gh_repo', val);
-            showToast(`✅ リポジトリを設定しました: ${val}`);
+        if(e.target.value) {
+            await dbSave('gh_repo', e.target.value);
+            showToast(`✅ デプロイ先リポジトリを設定しました`);
         }
     });
 
     $('clearSettingsBtn').onclick = async () => {
         if(confirm('すべての設定と保存データを初期化します。よろしいですか？')) {
             await dbClear();
-            $('ghToken').value = '';
-            $('ghOwner').value = '';
+            $('ghToken').value = ''; $('ghOwner').value = '';
             $('ghRepoSelect').innerHTML = '<option value="">トークンを設定してください...</option>';
+            $('sourceRepoSelect').innerHTML = '<option value="">設定(⚙️)からトークンを保存してください...</option>';
             showToast('🗑️ 設定を初期化しました');
         }
     };
 
-    // --- ファイル選択 & D&D ---
+    // --- ファイル選択 (ローカル) ---
     const fileInput = $('fileInput');
     const dropZone = $('dropZone');
     const fileListArea = $('fileList');
+    const localFileControls = $('localFileControls');
     let selectedFiles = [];
 
     const handleFiles = (files) => {
@@ -679,11 +728,20 @@
         fileListArea.innerHTML = '';
         if (selectedFiles.length > 0) {
             fileListArea.style.display = 'block';
+            localFileControls.style.display = 'flex';
             let hasIndexHtml = false;
-            selectedFiles.forEach(file => {
+            
+            selectedFiles.forEach((file, index) => {
                 const item = document.createElement('div');
                 item.className = 'file-item';
-                item.innerHTML = `<span>${file.name}</span><span class="file-size">${formatBytes(file.size)}</span>`;
+                const pathName = file.webkitRelativePath || file.name;
+                item.innerHTML = `
+                    <div class="file-item-left">
+                        <input type="checkbox" class="local-file-cb" data-index="${index}" checked>
+                        <span class="file-item-name" title="${pathName}">${pathName}</span>
+                    </div>
+                    <span class="file-size">${formatBytes(file.size)}</span>
+                `;
                 fileListArea.appendChild(item);
                 if (file.name === 'index.html') hasIndexHtml = true;
             });
@@ -691,14 +749,83 @@
             if (!hasIndexHtml) log('⚠️ 警告: index.html が含まれていません。アプリが正常に起動しない可能性があります。', 'log-war');
         } else {
             fileListArea.style.display = 'none';
+            localFileControls.style.display = 'none';
         }
     };
 
-    $('selectFileBtn').onclick = () => fileInput.click();
+    $('selectFileBtn').onclick = () => { fileInput.setAttribute('webkitdirectory', ''); fileInput.setAttribute('directory', ''); fileInput.click(); };
+    $('selectFileOnlyBtn').onclick = () => { fileInput.removeAttribute('webkitdirectory'); fileInput.removeAttribute('directory'); fileInput.click(); };
     fileInput.onchange = (e) => handleFiles(e.target.files);
+    
     dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
     dropZone.ondragleave = () => dropZone.classList.remove('dragover');
     dropZone.ondrop = (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); };
+
+    $('localSelectAllBtn').onclick = () => document.querySelectorAll('.local-file-cb').forEach(cb => cb.checked = true);
+    $('localDeselectAllBtn').onclick = () => document.querySelectorAll('.local-file-cb').forEach(cb => cb.checked = false);
+
+    // --- ファイル選択 (GitHub) ---
+    let ghSelectedFilesData = [];
+    const clearGhFileList = () => {
+        $('ghFileList').style.display = 'none';
+        $('ghFileControls').style.display = 'none';
+        ghSelectedFilesData = [];
+    };
+
+    $('fetchGhFilesBtn').onclick = async () => {
+        const repo = $('sourceRepoSelect').value;
+        const owner = await dbGet('gh_owner');
+        let path = $('sourceRepoPath').value.trim();
+        if (path.startsWith('/')) path = path.substring(1);
+        
+        if (!repo || !owner) return showToast('⚠️ 取得元のリポジトリを選択してください');
+
+        const btn = $('fetchGhFilesBtn');
+        btn.disabled = true; btn.innerText = '⏳ 取得中...';
+        
+        try {
+            const contents = await ghApi(`/repos/${owner}/${repo}/contents/${path}`, 'GET');
+            const items = Array.isArray(contents) ? contents : [contents];
+            ghSelectedFilesData = items;
+            
+            const listArea = $('ghFileList');
+            listArea.innerHTML = '';
+            
+            if (items.length > 0) {
+                listArea.style.display = 'block';
+                $('ghFileControls').style.display = 'flex';
+                
+                items.forEach((item) => {
+                    const el = document.createElement('div');
+                    el.className = 'file-item';
+                    const icon = item.type === 'dir' ? '📁' : '📄';
+                    const sizeStr = item.type === 'dir' ? '-' : formatBytes(item.size);
+                    
+                    el.innerHTML = `
+                        <div class="file-item-left">
+                            <input type="checkbox" class="gh-file-cb" data-path="${item.path}" checked>
+                            <span class="file-item-name" title="${item.path}">${icon} ${item.name}</span>
+                        </div>
+                        <span class="file-size">${sizeStr}</span>
+                    `;
+                    listArea.appendChild(el);
+                });
+                showToast(`✅ ${items.length}件のアイテムを取得しました`);
+            } else {
+                clearGhFileList();
+                showToast('⚠️ 指定されたパスにファイルが見つかりません');
+            }
+        } catch (e) {
+            log(`❌ ファイル一覧取得エラー: ${e.message}`, 'log-err');
+            showToast('❌ 取得失敗');
+            clearGhFileList();
+        } finally {
+            btn.disabled = false; btn.innerText = '📂 ファイル一覧を取得';
+        }
+    };
+
+    $('ghSelectAllBtn').onclick = () => document.querySelectorAll('.gh-file-cb').forEach(cb => cb.checked = true);
+    $('ghDeselectAllBtn').onclick = () => document.querySelectorAll('.gh-file-cb').forEach(cb => cb.checked = false);
 
     // --- GitHub Actions Workflow YAML Definition ---
     const buildApkYamlContent = `name: Mobile App Builder
@@ -714,6 +841,22 @@ on:
         description: 'パッケージ名 (com.example.app)'
         default: 'com.example.app'
         required: true
+      source_type:
+        description: '取得元 (local / github)'
+        default: 'local'
+        required: true
+      source_repo:
+        description: 'GitHubリポジトリ (owner/repo)'
+        default: ''
+        required: false
+      source_path:
+        description: 'アセットのパス'
+        default: '/'
+        required: false
+      selected_files:
+        description: '対象ファイル (カンマ区切り)'
+        default: ''
+        required: false
 
 jobs:
   build:
@@ -742,16 +885,55 @@ jobs:
               "@capacitor/cli": "^5.0.0"
             }
           }' > package.json
-          cat package.json
 
       - name: Install Dependencies
         run: npm install
 
-      - name: Extract Web Assets
+      - name: Extract Web Assets (Local)
+        if: github.event.inputs.source_type == 'local'
         run: |
           rm -rf www
           mkdir www
           unzip -o www.zip -d www
+          ls -l www
+
+      - name: Checkout Source Repo (GitHub)
+        if: github.event.inputs.source_type == 'github'
+        uses: actions/checkout@v4
+        with:
+          repository: \${{ github.event.inputs.source_repo }}
+          path: source_repo_temp
+
+      - name: Copy Web Assets (GitHub)
+        if: github.event.inputs.source_type == 'github'
+        run: |
+          rm -rf www
+          mkdir www
+          SOURCE_PATH="\${{ github.event.inputs.source_path }}"
+          SOURCE_PATH="\${SOURCE_PATH#/}"
+          SOURCE_PATH="\${SOURCE_PATH%/}"
+          SELECTED="\${{ github.event.inputs.selected_files }}"
+          
+          if [ -n "$SELECTED" ]; then
+            IFS=',' read -ra ADDR <<< "$SELECTED"
+            for i in "\${ADDR[@]}"; do
+              if [ -z "$SOURCE_PATH" ]; then
+                DEST="$i"
+              else
+                DEST="\${i#$SOURCE_PATH/}"
+              fi
+              mkdir -p "www/$(dirname "$DEST")" || true
+              cp -R "source_repo_temp/$i" "www/$DEST" || true
+            done
+          else
+            if [ -z "$SOURCE_PATH" ]; then
+              cp -R source_repo_temp/* www/ || true
+              cp -R source_repo_temp/.[!.]* www/ || true
+            else
+              cp -R source_repo_temp/$SOURCE_PATH/* www/ || true
+              cp -R source_repo_temp/$SOURCE_PATH/.[!.]* www/ || true
+            fi
+          fi
           ls -l www
 
       - name: Configure Capacitor
@@ -782,13 +964,35 @@ jobs:
 
     // --- デプロイ処理 ---
     $('deployBtn').onclick = async () => {
-        if (selectedFiles.length === 0) { showToast('⚠️ デプロイするファイルを選択してください。'); return; }
+        const sourceType = document.querySelector('input[name="sourceType"]:checked').value;
+        const sourceRepo = $('sourceRepoSelect').value;
+        const sourcePath = $('sourceRepoPath').value || '/';
+        const owner = await dbGet('gh_owner');
+        let filesToZip = [];
+        let selectedGhPaths = '';
+
+        if (sourceType === 'local') {
+            const checkedCbs = Array.from(document.querySelectorAll('.local-file-cb:checked'));
+            filesToZip = checkedCbs.map(cb => selectedFiles[parseInt(cb.dataset.index)]);
+            if (filesToZip.length === 0) { 
+                showToast('⚠️ パッケージに含めるファイルが選択されていません。'); return; 
+            }
+        } else if (sourceType === 'github') {
+            if (!sourceRepo) { showToast('⚠️ 取得元のGitHubリポジトリを選択してください。'); return; }
+            if (ghSelectedFilesData.length > 0) {
+                const checkedCbs = Array.from(document.querySelectorAll('.gh-file-cb:checked'));
+                if (checkedCbs.length === 0) {
+                     showToast('⚠️ パッケージに含めるファイルが選択されていません。'); return;
+                }
+                selectedGhPaths = checkedCbs.map(cb => cb.dataset.path).join(',');
+            }
+        }
+
         const repo = await dbGet('gh_repo');
         const token = await dbGet('gh_token');
         if (!token || !repo) { 
             showToast('⚠️ 設定画面(⚙️)からGitHub設定を完了してください。');
-            $('settingsOverlay').classList.add('active');
-            return; 
+            $('settingsOverlay').classList.add('active'); return; 
         }
         
         const btn = $('deployBtn');
@@ -801,74 +1005,69 @@ jobs:
             btn.disabled = true;
             setStatus('status-working', 'Processing...');
             $('logConsole').innerHTML = ''; 
-            log(`🚀 <b>${appName}</b> のデプロイを開始します...`);
+            log(`🚀 <b>${appName}</b> のデプロイを開始します... (ソース: ${sourceType})`);
 
-            // 1. ZIP圧縮
-            log('1/5: 📦 選択されたファイルからZIPパッケージを作成中...');
-            const zip = new JSZip();
-            selectedFiles.forEach(file => zip.file(file.name, file));
-            const zipBase64 = await zip.generateAsync({ type: 'base64' });
-            log('✅ ZIPパッケージ作成完了.', 'log-suc');
+            if (sourceType === 'local') {
+                log(`1/5: 📦 選択された ${filesToZip.length} ファイルからZIPパッケージを作成中...`);
+                const zip = new JSZip();
+                filesToZip.forEach(file => zip.file(file.webkitRelativePath || file.name, file));
+                const zipBase64 = await zip.generateAsync({ type: 'base64' });
+                log('✅ ZIPパッケージ作成完了.', 'log-suc');
 
-            // 2. 既存ファイルの確認
-            log('2/5: 🔍 対象リポジトリの既存構成を確認中 (www.zip)...');
-            let sha = null;
-            try {
-                const fileRes = await ghApi('/contents/www.zip');
-                sha = fileRes.sha;
-                log(`既存のファイルを検出しました (SHA: ${sha.substring(0, 7)})`);
-            } catch (e) {
-                if (e.message.includes('404')) {
-                    log('新規ファイルとしてアップロードします。');
-                } else throw e; 
+                log('2/5: 🔍 対象リポジトリの既存構成を確認中 (www.zip)...');
+                let sha = null;
+                try {
+                    const fileRes = await ghApi('/contents/www.zip');
+                    sha = fileRes.sha;
+                } catch (e) {
+                    if (!e.message.includes('404')) throw e; 
+                }
+
+                log('3/5: ☁️ www.zip をGitHubへアップロード中...');
+                await ghApi('/contents/www.zip', 'PUT', { message: `Deploy Web Assets (App: ${appName})`, content: zipBase64, sha: sha });
+                log('✅ アップロード成功.', 'log-suc');
+            } else {
+                log('1〜3/5: ☁️ GitHubリポジトリからの取得を選択しました。ZIPアップロードをスキップします。');
             }
 
-            // 3. アップロード
-            log('3/5: ☁️ www.zip をGitHubへアップロード中...');
-            const putBody = {
-                message: `Deploy Web Assets (App: ${appName})`,
-                content: zipBase64,
-                sha: sha
-            };
-            await ghApi('/contents/www.zip', 'PUT', putBody);
-            log('✅ アップロード成功.', 'log-suc');
-
-            // 4. workflowファイルの自動生成・確認
-            log('4/5: 📄 GitHub Actionsワークフローファイル (build-apk.yml) の確認・生成中...');
+            log('4/5: 📄 GitHub Actionsワークフローファイル (build-apk.yml) の確認・更新中...');
+            let wfSha = null;
             try {
                 const wfRes = await ghApi('/contents/.github/workflows/build-apk.yml');
-                log('✅ 既存のワークフローファイルを確認しました。', 'log-suc');
+                wfSha = wfRes.sha;
             } catch (e) {
-                if (e.message.includes('404')) {
-                    log('⚠️ ワークフローファイルが見つかりません。自動生成してコミットします...');
-                    // 日本語を含むYAMLを安全にBase64エンコード
-                    const b64Yaml = btoa(unescape(encodeURIComponent(buildApkYamlContent)));
-                    await ghApi('/contents/.github/workflows/build-apk.yml', 'PUT', {
-                        message: 'feat: Add build-apk.yml for Native App Packager',
-                        content: b64Yaml
-                    });
-                    log('✅ ワークフローファイルを自動生成・コミットしました。', 'log-suc');
-                    
-                    log('⏳ GitHub Actionsが新しいワークフローファイルを認識するのを待機中 (5秒)...');
-                    await new Promise(resolve => setTimeout(resolve, 5000));
-                    log('✅ 待機完了。');
-                } else {
-                    throw e; 
-                }
+                if (!e.message.includes('404')) throw e; 
             }
 
-            // 5. GitHub Actionsのトリガー
+            const b64Yaml = btoa(unescape(encodeURIComponent(buildApkYamlContent)));
+            await ghApi('/contents/.github/workflows/build-apk.yml', 'PUT', {
+                message: 'feat: Update build-apk.yml for Native App Packager',
+                content: b64Yaml,
+                sha: wfSha
+            });
+            log('✅ ワークフローファイルを更新・コミットしました。', 'log-suc');
+            
+            log('⏳ GitHub Actionsが認識するのを待機中 (5秒)...');
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            
             log('5/5: ⚡ GitHub Actionsワークフローをトリガー中...');
-            const dispatchBody = { ref: 'main', inputs: { app_name: appName, app_id: appId } };
-            await ghApi('/actions/workflows/build-apk.yml/dispatches', 'POST', dispatchBody);
+            await ghApi('/actions/workflows/build-apk.yml/dispatches', 'POST', { 
+                ref: 'main', 
+                inputs: { 
+                    app_name: appName, 
+                    app_id: appId,
+                    source_type: sourceType,
+                    source_repo: sourceType === 'github' ? `${owner}/${sourceRepo}` : '',
+                    source_path: sourceType === 'github' ? sourcePath : '/',
+                    selected_files: selectedGhPaths
+                } 
+            });
             log('✅ ワークフローのディスパッチ成功.', 'log-suc');
 
-            // ポーリング開始
             startPolling(appName);
 
         } catch (e) {
             log(`❌ エラー発生: ${e.message}`, 'log-err');
-            log('💡 詳細なエラー情報を確認するには、ブラウザの開発者ツール (F12) を開き、「Network」タブを確認してください。', 'log-war');
             setStatus('status-error', 'Deployment Failed');
             btn.disabled = false;
             releaseWakeLock();
@@ -895,7 +1094,7 @@ jobs:
                 }
 
                 const runsData = await ghApi('/actions/runs?event=workflow_dispatch&per_page=5');
-                networkErrorCount = 0; // 成功したらリトライカウンタをリセット
+                networkErrorCount = 0; 
 
                 if (!runsData || runsData.workflow_runs.length === 0) {
                     if(searchAttempts % 3 === 0) log('⏳ 実行履歴を待機中...');
@@ -920,48 +1119,36 @@ jobs:
 
                 if (!targetRun) return;
 
-                const status = targetRun.status;
-                const conclusion = targetRun.conclusion;
+                setStatus('status-working', `Building (${targetRun.status})...`);
 
-                setStatus('status-working', `Building (${status})...`);
-
-                if (status === 'completed') {
+                if (targetRun.status === 'completed') {
                     clearInterval(pollingInterval);
                     releaseWakeLock();
                     $('deployBtn').disabled = false;
 
-                    if (conclusion === 'success') {
+                    if (targetRun.conclusion === 'success') {
                         log('🎉 Android APKのビルドが完了しました！', 'log-suc');
                         setStatus('status-success', 'Build Success');
-                        
-                        const artifactsUrl = `${targetRun.html_url}#artifacts`;
-                        $('downloadLink').href = artifactsUrl;
+                        $('downloadLink').href = `${targetRun.html_url}#artifacts`;
                         $('downloadArea').style.display = 'block';
                         showToast('✅ APKのダウンロード準備ができました');
                     } else {
-                        throw new Error(`ビルドが失敗しました (Conclusion: ${conclusion})。GitHub Actionsのログを確認してください。`);
+                        throw new Error(`ビルドが失敗しました (Conclusion: ${targetRun.conclusion})。`);
                     }
                 }
 
             } catch (e) {
                 if (e.message.includes('Failed to fetch') || e.message.includes('ネットワークエラー')) {
                     networkErrorCount++;
-                    console.error('[Polling Network Error]', e);
-                    if (networkErrorCount < 3) {
-                        log(`⚠️ ネットワークエラー。再試行します (${networkErrorCount}/3)...`, 'log-war');
-                        return; // 終了せず次のインターバルを待つ
-                    }
+                    if (networkErrorCount < 3) return;
                 }
-
                 clearInterval(pollingInterval);
                 releaseWakeLock();
-                console.error('[Polling Fatal Error]', e);
                 log(`❌ 監視エラー: ${e.message}`, 'log-err');
-                log('💡 詳細なエラー情報を確認するには、ブラウザの開発者ツール (F12) を開き、「Network」タブおよび「Console」タブを確認してください。', 'log-war');
                 setStatus('status-error', 'Monitoring Error');
                 $('deployBtn').disabled = false;
             }
-        }, 10000); // 10秒ごとにポーリング
+        }, 10000);
     }
 
     // 初期化
