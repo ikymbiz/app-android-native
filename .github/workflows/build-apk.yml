@@ -14,28 +14,51 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with: { node-version: 20 }
-      - uses: actions/setup-java@v4
+        
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
 
+      # 1. Capacitorの依存関係を定義した package.json を作成
+      - name: Create package.json for Capacitor dependencies
+        run: |
+          echo '{
+            "name": "web-to-native-app",
+            "version": "1.0.0",
+            "description": "Auto-generated project for Capacitor dependencies",
+            "license": "MIT",
+            "dependencies": {
+              "@capacitor/core": "^6.0.0",
+              "@capacitor/android": "^6.0.0"
+            },
+            "devDependencies": {
+              "@capacitor/cli": "^6.0.0"
+            }
+          }' > package.json
+          cat package.json
+
+      # 2. 必要なライブラリをインストール
       - name: Install Dependencies
         run: npm install
 
-      # ========================================================
-      # 【ここを修正】www.zip を解凍して www フォルダを作成する
-      # ========================================================
+      # 3. アップロードされた www.zip を解凍
       - name: Extract Web Assets
         run: |
-          # www フォルダがあれば一旦削除し、クリーンな状態にする
           rm -rf www
           mkdir www
-          # アップロードされた www.zip を www フォルダに解凍する
-          unzip -o www.zip -d www
-          # 解凍できているか確認（index.html があるか等）
+          if [ -f "www.zip" ]; then
+            unzip -o www.zip -d www
+          else
+            echo "www.zip not found. Creating dummy index.html"
+            echo "<html><body><h1>Update your www.zip!</h1></body></html>" > www/index.html
+          fi
           ls -l www
 
-      # 入力された変数で設定ファイルを上書き生成する
+      # 4. Capacitorの設定ファイルを生成
       - name: Configure Capacitor
         run: |
           echo '{
@@ -45,17 +68,20 @@ jobs:
             "bundledWebRuntime": false
           }' > capacitor.config.json
 
+      # 5. Androidプロジェクトの構成
       - name: Android Platform Setup
         run: |
           npx cap add android || true
           npx cap sync android
 
+      # 6. APKのビルド
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
+      # 7. 成果物のアップロード
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
