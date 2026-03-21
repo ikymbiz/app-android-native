@@ -1,9 +1,3 @@
-提供されたHTML（SPA: Single Page Application）のコードを分析し、プロジェクトの目的、機能、仕組み、使い方などを網羅した高品質な `README.md` を作成しました。
-
-そのままGitHubなどのリポジトリのルートに配置してご利用いただけます。
-
----
-
 # ⚡ Native App Packager
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
