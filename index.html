@@ -2,145 +2,387 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ Native App Cloud Packager & Deployer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>⚡ Native App Packager</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        :root { --bg-main: #1e1e1e; --bg-side: #252526; --text: #cccccc; --primary: #007acc; --border: #444444; --success: #4ec9b0; --error: #f44747; --warning: #dcdcaa; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; background: var(--bg-main); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+        :root { 
+            --bg-main: #121212; 
+            --bg-surface: #1e1e1e; 
+            --bg-elevated: #2c2c2c;
+            --text-main: #e0e0e0; 
+            --text-muted: #9e9e9e; 
+            --primary: #007acc; 
+            --primary-hover: #0098ff;
+            --border: #333333; 
+            --success: #4ec9b0; 
+            --error: #f44747; 
+            --warning: #dcdcaa; 
+        }
         
-        /* Sidebar (Settings & App Info) */
-        .sidebar { width: 300px; background: var(--bg-side); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; overflow-y: auto; }
-        .sidebar h2 { font-size: 1.1rem; margin-top: 0; color: white; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
-        .sidebar h2:not(:first-child) { margin-top: 25px; }
-        .form-group { margin-bottom: 12px; }
-        label { display: block; font-size: 0.8rem; color: #aaaaaa; margin-bottom: 4px; }
-        input[type="text"], input[type="password"], select { width: 100%; padding: 8px; background: #3c3c3c; border: 1px solid #555555; color: white; border-radius: 4px; box-sizing: border-box; font-size: 0.9rem; }
-        select { appearance: auto; }
-        input[type="password"] { letter-spacing: 0.1em; }
-        .btn-small { background: #333; color: #ccc; border: 1px solid #555; padding: 4px 8px; font-size: 0.75rem; cursor: pointer; border-radius: 4px; margin-top: 4px; transition: 0.2s; }
-        .btn-small:hover { background: #444; color: white; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background: var(--bg-main); 
+            color: var(--text-main); 
+            display: flex; 
+            flex-direction: column;
+            height: 100vh; 
+            overflow: hidden; 
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            z-index: 10;
+        }
+        header h1 {
+            font-size: 1.2rem;
+            margin: 0;
+            font-weight: 600;
+        }
+        .icon-btn {
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+        .icon-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* Container */
+        .app-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            position: relative;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Sections */
+        .section {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .section-title {
+            font-size: 1rem;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Forms */
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
+        input[type="text"], input[type="password"], select { 
+            width: 100%; 
+            padding: 12px; 
+            background: var(--bg-elevated); 
+            border: 1px solid var(--border); 
+            color: var(--text-main); 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            font-size: 1rem; 
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        input[readonly] { background: #222; color: #777; cursor: not-allowed; }
+        select { appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239e9e9e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 1em; }
         
-        /* Main Area (File Selector & Console) */
-        .main-content { flex-grow: 1; display: flex; flex-direction: column; }
+        /* Buttons */
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s, transform 0.1s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn:hover { background: var(--primary-hover); }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { background: #555; color: #888; cursor: not-allowed; transform: none; }
         
-        /* File Selector Area */
-        .file-selector-container { flex-grow: 1; padding: 30px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 1px solid var(--border); background: #1a1a1a; }
-        .file-drop-zone { border: 2px dashed #555; border-radius: 12px; width: 100%; max-width: 500px; padding: 40px; text-align: center; cursor: pointer; transition: 0.3s; color: #888; }
-        .file-drop-zone:hover, .file-drop-zone.dragover { border-color: var(--primary); color: #ccc; background: rgba(0, 122, 204, 0.05); }
-        .file-drop-zone h3 { margin-top: 0; color: #ccc; }
-        .file-drop-zone p { font-size: 0.9rem; margin-bottom: 20px; }
+        .btn-secondary {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+        .btn-secondary:hover { background: #3a3a3a; }
+        .btn-small { padding: 8px 12px; font-size: 0.85rem; width: auto; display: inline-flex; }
+
+        /* File Drop Zone */
+        .file-drop-zone { 
+            border: 2px dashed var(--border); 
+            border-radius: 12px; 
+            padding: 40px 20px; 
+            text-align: center; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+            background: var(--bg-surface);
+        }
+        .file-drop-zone:hover, .file-drop-zone.dragover { 
+            border-color: var(--primary); 
+            background: rgba(0, 122, 204, 0.05); 
+        }
+        .file-drop-zone h3 { margin: 0 0 10px 0; font-size: 1.1rem; }
+        .file-drop-zone p { font-size: 0.9rem; color: var(--text-muted); margin: 0 0 20px 0; line-height: 1.4; }
         #fileInput { display: none; }
-        .select-btn { background: var(--primary); color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
         
-        #fileList { margin-top: 20px; width: 100%; max-width: 500px; max-height: 150px; overflow-y: auto; font-size: 0.85rem; color: #aaa; text-align: left; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; display: none;}
-        .file-item { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #333; }
-        .file-size { color: #666; font-family: monospace; }
-        
-        /* Console & Actions */
-        .console-container { height: 220px; background: var(--bg-side); padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; }
-        .action-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
-        button#deployBtn { padding: 10px 25px; background: var(--success); color: #1e1e1e; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 1rem; }
-        button#deployBtn:hover { background: #6ae0c7; transform: translateY(-1px); }
-        button#deployBtn:disabled { background: #555555; color: #888; cursor: not-allowed; transform: none; }
-        
-        /* Status & Logs */
-        #statusDisplay { font-size: 0.9rem; font-weight: bold; display: flex; align-items: center; gap: 5px; margin-left: auto;}
+        #fileList { margin-top: 15px; max-height: 150px; overflow-y: auto; font-size: 0.85rem; background: var(--bg-elevated); padding: 10px; border-radius: 8px; display: none;}
+        .file-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+        .file-item:last-child { border-bottom: none; }
+        .file-size { color: var(--text-muted); font-family: monospace; }
+
+        /* Console */
+        .console-container {
+            display: flex;
+            flex-direction: column;
+            height: 250px;
+            background: #0d0d0d;
+            border-top: 1px solid var(--border);
+        }
+        .status-bar {
+            padding: 10px 20px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .status-indicator { display: flex; align-items: center; gap: 8px; }
         .status-icon { width: 10px; height: 10px; border-radius: 50%; background: #555; }
         .status-idle .status-icon { background: #aaaaaa; }
         .status-working .status-icon { background: var(--primary); animation: pulse 1.5s infinite; }
         .status-success .status-icon { background: var(--success); }
         .status-error .status-icon { background: var(--error); }
-        
-        #logConsole { flex-grow: 1; background: #1a1a1a; border: 1px solid #333; padding: 10px; font-family: 'Consolas', monospace; font-size: 0.8rem; overflow-y: auto; color: #aaaaaa; border-radius: 4px; }
-        .log-item { margin-bottom: 2px; line-height: 1.4; }
+
+        #logConsole { 
+            flex-grow: 1; 
+            padding: 15px; 
+            font-family: 'Consolas', 'Courier New', monospace; 
+            font-size: 0.8rem; 
+            overflow-y: auto; 
+            color: #ccc; 
+            line-height: 1.5;
+        }
+        .log-item { margin-bottom: 4px; word-break: break-all; }
         .log-err { color: var(--error); }
         .log-suc { color: var(--success); }
         .log-war { color: var(--warning); }
-        
-        /* Download Link */
-        #downloadArea { margin-top: 10px; display: none; text-align: center; }
-        #downloadLink { color: var(--success); text-decoration: none; font-weight: bold; border: 1px solid var(--success); padding: 6px 15px; border-radius: 4px; font-size: 0.9rem; transition: 0.2s; }
+
+        /* Download Area */
+        #downloadArea { padding: 15px; text-align: center; background: var(--bg-surface); display: none; }
+        #downloadLink { color: var(--success); text-decoration: none; font-weight: bold; border: 1px solid var(--success); padding: 10px 20px; border-radius: 8px; display: inline-block; transition: 0.2s; }
         #downloadLink:hover { background: rgba(78, 201, 176, 0.1); }
+
+        /* Settings Overlay */
+        #settingsOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-main);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #settingsOverlay.active { transform: translateY(0); }
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-surface);
+        }
+        .settings-content {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Toast */
+        #toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--bg-elevated);
+            color: var(--text-main);
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            white-space: nowrap;
+        }
+        #toast.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
 
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 122, 204, 0.7); } 70% { box-shadow: 0 0 0 8px rgba(0, 122, 204, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 122, 204, 0); } }
     </style>
 </head>
 <body class="status-idle">
 
-<div class="sidebar">
-    <h2>🛠️ GitHub Settings</h2>
-    <div class="form-group">
-        <label>GitHub PAT (Fine-grained)</label>
-        <input type="password" id="ghToken" placeholder="github_pat_...">
-        <div style="text-align: right;"><button class="btn-small" id="saveTokenBtn">保存</button></div>
-    </div>
-    <div class="form-group">
-        <label>GitHub ユーザー名</label>
-        <input type="text" id="ghOwner" placeholder="user_name">
-    </div>
-    <div class="form-group">
-        <label style="display: flex; justify-content: space-between; align-items: center;">
-            リポジトリ名
-            <button class="btn-small" id="fetchReposBtn" style="margin: 0;">🔄 取得</button>
-        </label>
-        <select id="ghRepo">
-            <option value="">リポジトリを選択してください...</option>
-        </select>
+    <!-- Header -->
+    <header>
+        <h1>⚡ Native Packager</h1>
+        <button class="icon-btn" id="openSettingsBtn" aria-label="Settings">⚙️</button>
+    </header>
+
+    <!-- Main Content -->
+    <div class="app-container">
+        
+        <div class="section">
+            <h2 class="section-title">📱 App Configuration</h2>
+            <div class="form-group">
+                <label>アプリの表示名</label>
+                <input type="text" id="appName" placeholder="My App" value="My Packaged App">
+            </div>
+            <div class="form-group">
+                <label>パッケージID (例: com.example.app)</label>
+                <input type="text" id="appId" placeholder="com.example.pkgapp" value="com.example.pkgapp">
+            </div>
+        </div>
+
+        <div class="section" style="flex-grow: 1;">
+            <h2 class="section-title">📁 Web Assets (www)</h2>
+            <div class="file-drop-zone" id="dropZone">
+                <h3>HTML/CSS/JS をアップロード</h3>
+                <p>フォルダ内の全ファイルをまとめて選択、<br>またはドラッグ＆ドロップしてください。</p>
+                <input type="file" id="fileInput" multiple accept=".html,.css,.js,.png,.jpg,.jpeg,.svg,.gif,.json,.webmanifest,.ico">
+                <button class="btn btn-secondary btn-small" type="button" id="selectFileBtn">ファイルを選択</button>
+            </div>
+            <div id="fileList"></div>
+            
+            <div style="margin-top: 20px;">
+                <button class="btn" id="deployBtn">🚀 パッケージ & デプロイ</button>
+            </div>
+        </div>
+
+        <!-- Console Section -->
+        <div class="console-container">
+            <div class="status-bar">
+                <span>Deployment Logs</span>
+                <div class="status-indicator">
+                    <span class="status-icon"></span>
+                    <span id="statusText">Idle</span>
+                </div>
+            </div>
+            <div id="logConsole">
+                <div class="log-item">Ready. システムが起動しました。</div>
+                <div class="log-item log-war">⚠️ index.html がアセットに含まれていることを確認してください。</div>
+            </div>
+            <div id="downloadArea">
+                <a href="#" id="downloadLink" target="_blank">📥 APKをダウンロード (Artifactsページへ)</a>
+            </div>
+        </div>
     </div>
 
-    <h2>📱 App Config</h2>
-    <div class="form-group">
-        <label>アプリの表示名</label>
-        <input type="text" id="appName" value="My Packaged App">
-    </div>
-    <div class="form-group">
-        <label>パッケージID (com.user.app)</label>
-        <input type="text" id="appId" value="com.example.pkgapp">
-    </div>
-</div>
+    <!-- Settings Overlay -->
+    <div id="settingsOverlay">
+        <div class="settings-header">
+            <h2 style="margin:0; font-size: 1.2rem;">設定</h2>
+            <button class="icon-btn" id="closeSettingsBtn">✕</button>
+        </div>
+        <div class="settings-content">
+            <div class="section" style="border:none; padding: 0;">
+                <h2 class="section-title">🛠️ GitHub Connection</h2>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">
+                    デプロイ先のGitHubリポジトリ（Actionsが設定されているもの）を指定します。
+                </p>
 
-<div class="main-content">
-    <div class="file-selector-container">
-        <div class="file-drop-zone" id="dropZone">
-            <h3>Web Assets (www/)</h3>
-            <p>ここにアプリのWebファイルをドラッグ＆ドロップ<br>または、フォルダ内の全ファイルをまとめて選択</p>
-            <input type="file" id="fileInput" multiple accept=".html,.css,.js,.png,.jpg,.jpeg,.svg,.gif,.json">
-            <button class="select-btn" type="button">ファイルを選択...</button>
+                <div class="form-group">
+                    <label>GitHub PAT (Fine-grained または Classic)</label>
+                    <input type="password" id="ghToken" placeholder="github_pat_... または ghp_...">
+                    <button class="btn btn-secondary" id="saveTokenBtn" style="margin-top: 10px;">💾 トークンを保存して接続</button>
+                </div>
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>GitHub ユーザー名</label>
+                    <input type="text" id="ghOwner" placeholder="トークン保存時に自動取得されます" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label style="display: flex; justify-content: space-between; align-items: center;">
+                        デプロイ先リポジトリ
+                        <button class="btn btn-secondary btn-small" id="fetchReposBtn" style="padding: 4px 8px; font-size: 0.75rem;">🔄 再取得</button>
+                    </label>
+                    <select id="ghRepoSelect">
+                        <option value="">トークンを設定してください...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" style="margin-top: 40px;">
+                    <button class="btn btn-secondary" id="clearSettingsBtn" style="color: var(--error); border-color: rgba(244, 71, 71, 0.3);">🗑️ 設定を初期化</button>
+                </div>
+            </div>
         </div>
-        <div id="fileList"></div>
     </div>
 
-    <div class="console-container">
-        <div class="action-bar">
-            <button id="deployBtn">🚀 パッケージ & デプロイ</button>
-            <div id="statusDisplay"><span class="status-icon"></span> <span id="statusText">Idle</span></div>
-        </div>
-        <div id="logConsole">
-            <div class="log-item log-war">⚠️ 準備: index.html が含まれていることを確認してください。</div>
-            <div class="log-item">Ready.</div>
-        </div>
-        <div id="downloadArea">
-            <a href="#" id="downloadLink" target="_blank">📥 APKをダウンロード (Artifactsページへ)</a>
-        </div>
-    </div>
-</div>
+    <!-- Toast Notification -->
+    <div id="toast">Message</div>
 
 <script>
-    // --- ユーティリティ関数 ---
+    // --- ユーティリティ & UI ---
     const $ = id => document.getElementById(id);
+    
     const log = (msg, type = '') => {
-        const console = $('logConsole');
+        const consoleEl = $('logConsole');
         const item = document.createElement('div');
         item.className = `log-item ${type}`;
-        item.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`; // innerHTML to allow links
-        console.appendChild(item);
-        console.scrollTop = console.scrollHeight;
+        item.innerHTML = `[${new Date().toLocaleTimeString('ja-JP', {hour12:false})}] ${msg}`;
+        consoleEl.appendChild(item);
+        consoleEl.scrollTop = consoleEl.scrollHeight;
     };
+    
     const setStatus = (cls, text) => {
         document.body.className = cls;
         $('statusText').innerText = text;
     };
+    
     const formatBytes = (bytes) => {
         if (bytes === 0) return '0 B';
         const k = 1024;
@@ -148,64 +390,244 @@
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     };
-    
-    // --- 設定管理 (トークン、オーナー、リポジトリ) ---
-    const TOKEN_KEY = 'gh_pat_v2_packager';
-    const OWNER_KEY = 'gh_owner_v2_packager';
-    const REPO_KEY = 'gh_repo_v2_packager';
 
-    $('ghToken').value = localStorage.getItem(TOKEN_KEY) || '';
-    $('ghOwner').value = localStorage.getItem(OWNER_KEY) || '';
+    const showToast = (msg) => {
+        const toast = $('toast');
+        toast.innerText = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+    };
 
-    $('saveTokenBtn').onclick = () => {
-        const token = $('ghToken').value;
-        const owner = $('ghOwner').value;
-        if (token) {
-            localStorage.setItem(TOKEN_KEY, token);
-            localStorage.setItem(OWNER_KEY, owner);
-            log('Settings stored securely in localStorage.', 'log-suc');
-            fetchRepositories(); // 保存時に自動取得を実行
-        } else {
-            localStorage.removeItem(TOKEN_KEY);
-            localStorage.removeItem(OWNER_KEY);
-            log('Settings removed from localStorage.');
+    // --- Wake Lock API (スリープ防止) ---
+    let wakeLock = null;
+    const requestWakeLock = async () => {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+                console.log('Wake Lock is active');
+            }
+        } catch (err) {
+            console.warn(`Wake Lock Error: ${err.name}, ${err.message}`);
+        }
+    };
+    const releaseWakeLock = async () => {
+        if (wakeLock !== null) {
+            await wakeLock.release();
+            wakeLock = null;
+            console.log('Wake Lock released');
         }
     };
 
-    $('ghRepo').addEventListener('change', (e) => {
-        localStorage.setItem(REPO_KEY, e.target.value);
+    // --- PWA Setup (Service Worker & Manifest) ---
+    const setupPWA = () => {
+        const manifest = {
+            name: "Native App Packager",
+            short_name: "Packager",
+            display: "standalone",
+            background_color: "#121212",
+            theme_color: "#1e1e1e",
+            icons: [{ src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⚡%3C/text%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml" }]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+        const manifestUrl = URL.createObjectURL(manifestBlob);
+        document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestUrl}">`);
+
+        const swCode = `
+            const CACHE_NAME = 'packager-v1';
+            self.addEventListener('install', e => self.skipWaiting());
+            self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+            self.addEventListener('fetch', e => {
+                if(e.request.url.startsWith('http')) {
+                    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+                }
+            });
+        `;
+        const swBlob = new Blob([swCode], { type: 'application/javascript' });
+        const swUrl = URL.createObjectURL(swBlob);
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register(swUrl).catch(err => console.log('SW Reg Failed:', err));
+        }
+    };
+    setupPWA();
+
+    // --- IndexedDB ラッパー ---
+    const DB_NAME = 'PackagerConfigDB';
+    const STORE_NAME = 'settings';
+    
+    const dbPromise = new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = e => {
+            if (!e.target.result.objectStoreNames.contains(STORE_NAME)) {
+                e.target.result.createObjectStore(STORE_NAME);
+            }
+        };
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror = e => reject(e.target.error);
     });
 
-    // --- リポジトリの自動取得処理 ---
-    async function fetchRepositories() {
-        const token = $('ghToken').value;
-        if (!token) {
-            log('GitHub PAT is required to fetch repositories.', 'log-war');
-            return;
+    const dbSave = async (key, value) => {
+        const db = await dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).put(value, key);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    };
+
+    const dbGet = async (key) => {
+        const db = await dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const req = tx.objectStore(STORE_NAME).get(key);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(tx.error);
+        });
+    };
+
+    const dbClear = async () => {
+        const db = await dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).clear();
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    };
+
+    // --- UI State & Settings Management ---
+    const loadSettings = async () => {
+        const appName = await dbGet('app_name');
+        const appId = await dbGet('app_id');
+        const token = await dbGet('gh_token');
+        const owner = await dbGet('gh_owner');
+        
+        if (appName) $('appName').value = appName;
+        if (appId) $('appId').value = appId;
+        if (token) {
+            $('ghToken').value = token;
+            if (owner) {
+                $('ghOwner').value = owner;
+                fetchRepositories(); 
+            }
+        }
+    };
+
+    // App Configの自動保存
+    ['appName', 'appId'].forEach(id => {
+        $(id).addEventListener('change', async (e) => {
+            const val = e.target.value.trim();
+            if(id === 'appId' && val && !/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+[0-9a-z_]$/i.test(val)){
+                showToast('⚠️ パッケージIDの形式が不正です (例: com.example.app)');
+                return;
+            }
+            await dbSave(id === 'appName' ? 'app_name' : 'app_id', val);
+        });
+    });
+
+    $('openSettingsBtn').onclick = () => $('settingsOverlay').classList.add('active');
+    $('closeSettingsBtn').onclick = () => $('settingsOverlay').classList.remove('active');
+
+    // --- GitHub API & 連携 ---
+    async function ghApi(path, method = 'GET', body = null) {
+        const token = await dbGet('gh_token');
+        const owner = await dbGet('gh_owner');
+        const repo = await dbGet('gh_repo');
+        
+        let url = `https://api.github.com${path}`;
+        if (!path.startsWith('/user')) {
+            if (!owner || !repo) throw new Error('GitHub設定が未完了です。設定画面でリポジトリを選択してください。');
+            url = `https://api.github.com/repos/${owner}/${repo}${path}`;
         }
 
-        const repoSelect = $('ghRepo');
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+            'Content-Type': 'application/json'
+        };
+
+        try {
+            const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : null });
+            
+            if (!res.ok) {
+                let errorDetails = `HTTP Status: ${res.status}`;
+                try {
+                    const errData = await res.json();
+                    errorDetails += ` - API Message: ${errData.message || JSON.stringify(errData)}`;
+                    if (res.status === 401 || res.status === 403) {
+                         errorDetails += ' (🔑 GitHub PATの権限、有効期限、またはユーザー名を確認してください)';
+                    } else if (res.status === 404) {
+                         errorDetails += ' (🔍 リソースが見つかりません。リポジトリパスやファイルの存在を確認してください)';
+                    }
+                } catch (parseError) {
+                    const text = await res.text();
+                    errorDetails += ` - Response Text: ${text.substring(0, 200)}... (JSON parse failed)`;
+                }
+                throw new Error(errorDetails);
+            }
+            return res.status === 204 ? null : res.json();
+            
+        } catch (e) {
+            console.error('[ghApi Error]', e);
+            if (e.message.includes('Failed to fetch') || e.name === 'TypeError') {
+                throw new Error(`ネットワークエラーが発生しました。インターネット接続やブラウザの拡張機能/プロキシ設定を確認してください。\n詳細: ${e.message}`);
+            }
+            throw e; 
+        }
+    }
+
+    $('saveTokenBtn').onclick = async () => {
+        const token = $('ghToken').value.trim();
+        if (!token) {
+            showToast('⚠️ トークンを入力してください');
+            return;
+        }
+        
+        const btn = $('saveTokenBtn');
+        btn.disabled = true;
+        btn.innerText = '⏳ 検証中...';
+        
+        try {
+            await dbSave('gh_token', token);
+            // ユーザー名を自動取得
+            const res = await fetch('https://api.github.com/user', { headers: { 'Authorization': `Bearer ${token}` }});
+            
+            if (!res.ok) throw new Error('無効なトークンか権限不足です');
+            
+            const userData = await res.json();
+            const owner = userData.login;
+            $('ghOwner').value = owner;
+            await dbSave('gh_owner', owner);
+            
+            showToast(`✅ 認証成功: ${owner}`);
+            await fetchRepositories(); 
+            
+        } catch(e) {
+            showToast(`❌ エラー: ${e.message}`);
+            log(`❌ 認証エラー: ${e.message}`, 'log-err');
+            log('💡 詳細なエラー情報を確認するには、ブラウザの開発者ツール (F12) を開き、「Network」タブを確認してください。', 'log-war');
+            await dbSave('gh_token', ''); 
+        } finally {
+            btn.disabled = false;
+            btn.innerText = '💾 トークンを保存して接続';
+        }
+    };
+
+    async function fetchRepositories() {
+        const token = await dbGet('gh_token');
+        const owner = await dbGet('gh_owner');
+        if (!token || !owner) return;
+
+        const repoSelect = $('ghRepoSelect');
         const btn = $('fetchReposBtn');
-        const savedRepo = localStorage.getItem(REPO_KEY) || '';
+        const savedRepo = await dbGet('gh_repo');
 
         try {
             btn.disabled = true;
-            btn.innerText = '⏳';
-            repoSelect.innerHTML = '<option value="">ローディング中...</option>';
+            repoSelect.innerHTML = '<option value="">⏳ リポジトリを取得中...</option>';
             
-            const url = `https://api.github.com/user/repos?per_page=100&sort=updated`;
-            const headers = {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/vnd.github+json',
-                'X-GitHub-Api-Version': '2022-11-28'
-            };
-
-            const res = await fetch(url, { headers });
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(`${res.status} - ${errData.message}`);
-            }
-            const repos = await res.json();
+            const repos = await ghApi('/user/repos?per_page=100&sort=updated');
             
             repoSelect.innerHTML = '<option value="">リポジトリを選択してください...</option>';
             repos.forEach(repo => {
@@ -215,29 +637,41 @@
                 if (repo.name === savedRepo) opt.selected = true;
                 repoSelect.appendChild(opt);
             });
-            log('Repositories fetched successfully.', 'log-suc');
+            showToast('🔄 リポジトリ一覧を更新しました');
             
         } catch (e) {
-            repoSelect.innerHTML = '<option value="">取得エラー</option>';
-            log('Failed to fetch repositories: ' + e.message, 'log-err');
+            repoSelect.innerHTML = '<option value="">❌ 取得エラー</option>';
+            log(`❌ リポジトリ取得失敗: ${e.message}`, 'log-err');
+            log('💡 詳細なエラー情報を確認するには、ブラウザの開発者ツール (F12) を開き、「Network」タブを確認してください。', 'log-war');
         } finally {
             btn.disabled = false;
-            btn.innerText = '🔄 取得';
         }
     }
 
     $('fetchReposBtn').onclick = fetchRepositories;
+    
+    $('ghRepoSelect').addEventListener('change', async (e) => {
+        const val = e.target.value;
+        if(val) {
+            await dbSave('gh_repo', val);
+            showToast(`✅ リポジトリを設定しました: ${val}`);
+        }
+    });
 
-    // 起動時にトークンがあれば自動取得
-    if ($('ghToken').value) {
-        fetchRepositories();
-    }
+    $('clearSettingsBtn').onclick = async () => {
+        if(confirm('すべての設定と保存データを初期化します。よろしいですか？')) {
+            await dbClear();
+            $('ghToken').value = '';
+            $('ghOwner').value = '';
+            $('ghRepoSelect').innerHTML = '<option value="">トークンを設定してください...</option>';
+            showToast('🗑️ 設定を初期化しました');
+        }
+    };
 
-    // --- ファイル選択 & ドラッグ＆ドロップ ---
+    // --- ファイル選択 & D&D ---
     const fileInput = $('fileInput');
     const dropZone = $('dropZone');
     const fileListArea = $('fileList');
-    const selectBtn = document.querySelector('.select-btn');
     let selectedFiles = [];
 
     const handleFiles = (files) => {
@@ -253,133 +687,232 @@
                 fileListArea.appendChild(item);
                 if (file.name === 'index.html') hasIndexHtml = true;
             });
-            log(`${selectedFiles.length} files selected.`);
-            if (!hasIndexHtml) log('⚠️ Warning: index.html is missing in selected files.', 'log-war');
+            showToast(`📁 ${selectedFiles.length}個のファイルを選択しました`);
+            if (!hasIndexHtml) log('⚠️ 警告: index.html が含まれていません。アプリが正常に起動しない可能性があります。', 'log-war');
         } else {
             fileListArea.style.display = 'none';
         }
     };
 
-    selectBtn.onclick = () => fileInput.click();
+    $('selectFileBtn').onclick = () => fileInput.click();
     fileInput.onchange = (e) => handleFiles(e.target.files);
     dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
     dropZone.ondragleave = () => dropZone.classList.remove('dragover');
     dropZone.ondrop = (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); };
 
-    // --- GitHub API ヘルパー ---
-    async function ghApi(path, method = 'GET', body = null) {
-        const token = $('ghToken').value;
-        const owner = $('ghOwner').value;
-        const repo = $('ghRepo').value;
-        if (!token || !owner || !repo) throw new Error('GitHub Settings are incomplete.');
+    // --- GitHub Actions Workflow YAML Definition ---
+    const buildApkYamlContent = `name: Mobile App Builder
 
-        const url = `https://api.github.com/repos/${owner}/${repo}${path}`;
-        const headers = {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/vnd.github+json',
-            'Content-Type': 'application/json'
-        };
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: 'アプリの表示名'
+        default: 'My App'
+        required: true
+      app_id:
+        description: 'パッケージ名 (com.example.app)'
+        default: 'com.example.app'
+        required: true
 
-        const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : null });
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(`API Error: ${res.status} - ${errData.message}`);
-        }
-        return res.status === 204 ? null : res.json();
-    }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-    // --- メインロジック ---
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+
+      - uses: actions/setup-java@v4
+        with: { distribution: 'temurin', java-version: '17' }
+
+      - name: Create package.json for Capacitor dependencies
+        run: |
+          echo '{
+            "name": "web-to-native-app",
+            "version": "1.0.0",
+            "description": "Auto-generated project for Capacitor dependencies",
+            "license": "MIT",
+            "dependencies": {
+              "@capacitor/core": "^5.0.0",
+              "@capacitor/android": "^5.0.0"
+            },
+            "devDependencies": {
+              "@capacitor/cli": "^5.0.0"
+            }
+          }' > package.json
+          cat package.json
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Extract Web Assets
+        run: |
+          rm -rf www
+          mkdir www
+          unzip -o www.zip -d www
+          ls -l www
+
+      - name: Configure Capacitor
+        run: |
+          echo '{
+            "appId": "\${{ github.event.inputs.app_id }}",
+            "appName": "\${{ github.event.inputs.app_name }}",
+            "webDir": "www"
+          }' > capacitor.config.json
+
+      - name: Android Platform Setup
+        run: |
+          npx cap add android || true
+          npx cap sync android
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: \${{ github.event.inputs.app_name }}-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+`;
+
+    // --- デプロイ処理 ---
     $('deployBtn').onclick = async () => {
-        if (selectedFiles.length === 0) { alert('デプロイするファイルを選択してください。'); return; }
+        if (selectedFiles.length === 0) { showToast('⚠️ デプロイするファイルを選択してください。'); return; }
+        const repo = await dbGet('gh_repo');
+        const token = await dbGet('gh_token');
+        if (!token || !repo) { 
+            showToast('⚠️ 設定画面(⚙️)からGitHub設定を完了してください。');
+            $('settingsOverlay').classList.add('active');
+            return; 
+        }
         
         const btn = $('deployBtn');
         const appName = $('appName').value || 'My App';
         const appId = $('appId').value || 'com.example.app';
-        const downloadArea = $('downloadArea');
-        downloadArea.style.display = 'none';
+        $('downloadArea').style.display = 'none';
 
         try {
+            await requestWakeLock();
             btn.disabled = true;
             setStatus('status-working', 'Processing...');
-            $('logConsole').innerHTML = ''; // Clear console
-            log(`Starting deployment for app: <b>${appName}</b>`);
+            $('logConsole').innerHTML = ''; 
+            log(`🚀 <b>${appName}</b> のデプロイを開始します...`);
 
-            // ① ファイルをZIP圧縮
-            log('1/4 Creating ZIP package from selected files...');
+            // 1. ZIP圧縮
+            log('1/5: 📦 選択されたファイルからZIPパッケージを作成中...');
             const zip = new JSZip();
-            selectedFiles.forEach(file => {
-                zip.file(file.name, file); // www/フォルダ直下に平坦に格納
-            });
-            // Base64エンコードされたZIPデータを生成
+            selectedFiles.forEach(file => zip.file(file.name, file));
             const zipBase64 = await zip.generateAsync({ type: 'base64' });
-            log('ZIP package created successfully.', 'log-suc');
+            log('✅ ZIPパッケージ作成完了.', 'log-suc');
 
-            // ② GET contents: www.zip の現在のSHAを取得（存在しなければErrorになるのでcatchする）
-            log('2/4 Fetching target file SHA (www.zip)...');
+            // 2. 既存ファイルの確認
+            log('2/5: 🔍 対象リポジトリの既存構成を確認中 (www.zip)...');
             let sha = null;
             try {
                 const fileRes = await ghApi('/contents/www.zip');
                 sha = fileRes.sha;
-                log(`Existing file SHA found: ${sha.substring(0, 7)}`);
+                log(`既存のファイルを検出しました (SHA: ${sha.substring(0, 7)})`);
             } catch (e) {
-                log('No existing file found. Creating new one.');
-                // 404以外のエラーは再スロー
-                if (!e.message.includes('404')) throw e; 
+                if (e.message.includes('404')) {
+                    log('新規ファイルとしてアップロードします。');
+                } else throw e; 
             }
 
-            // ③ PUT contents: www.zipファイルを更新/作成
-            log('3/4 Uploading www.zip to GitHub repository...');
+            // 3. アップロード
+            log('3/5: ☁️ www.zip をGitHubへアップロード中...');
             const putBody = {
-                message: `Deploy Web Assets package (App: ${appName})`,
-                content: zipBase64, // JSZipが生成したBase64データをそのままセット
-                sha: sha // 存在する場合のみセット（新規作成時はnull）
+                message: `Deploy Web Assets (App: ${appName})`,
+                content: zipBase64,
+                sha: sha
             };
             await ghApi('/contents/www.zip', 'PUT', putBody);
-            log('File uploaded successfully.', 'log-suc');
+            log('✅ アップロード成功.', 'log-suc');
 
-            // ④ POST actions: ワークフローをトリガー
-            log('4/4 Triggering GitHub Actions workflow...');
+            // 4. workflowファイルの自動生成・確認
+            log('4/5: 📄 GitHub Actionsワークフローファイル (build-apk.yml) の確認・生成中...');
+            try {
+                const wfRes = await ghApi('/contents/.github/workflows/build-apk.yml');
+                log('✅ 既存のワークフローファイルを確認しました。', 'log-suc');
+            } catch (e) {
+                if (e.message.includes('404')) {
+                    log('⚠️ ワークフローファイルが見つかりません。自動生成してコミットします...');
+                    // 日本語を含むYAMLを安全にBase64エンコード
+                    const b64Yaml = btoa(unescape(encodeURIComponent(buildApkYamlContent)));
+                    await ghApi('/contents/.github/workflows/build-apk.yml', 'PUT', {
+                        message: 'feat: Add build-apk.yml for Native App Packager',
+                        content: b64Yaml
+                    });
+                    log('✅ ワークフローファイルを自動生成・コミットしました。', 'log-suc');
+                    
+                    log('⏳ GitHub Actionsが新しいワークフローファイルを認識するのを待機中 (5秒)...');
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    log('✅ 待機完了。');
+                } else {
+                    throw e; 
+                }
+            }
+
+            // 5. GitHub Actionsのトリガー
+            log('5/5: ⚡ GitHub Actionsワークフローをトリガー中...');
             const dispatchBody = { ref: 'main', inputs: { app_name: appName, app_id: appId } };
             await ghApi('/actions/workflows/build-apk.yml/dispatches', 'POST', dispatchBody);
-            log('Actions workflow dispatched.', 'log-suc');
+            log('✅ ワークフローのディスパッチ成功.', 'log-suc');
 
-            // ⑤ ポーリング開始
+            // ポーリング開始
             startPolling(appName);
 
         } catch (e) {
-            log(e.message, 'log-err');
-            setStatus('status-error', 'Error');
+            log(`❌ エラー発生: ${e.message}`, 'log-err');
+            log('💡 詳細なエラー情報を確認するには、ブラウザの開発者ツール (F12) を開き、「Network」タブを確認してください。', 'log-war');
+            setStatus('status-error', 'Deployment Failed');
             btn.disabled = false;
+            releaseWakeLock();
         }
     };
 
-    // --- ポーリング（ビルド状況監視） ---
+    // --- ビルド監視 (ポーリング) ---
     let pollingInterval;
     function startPolling(appName) {
-        log('Build process queued. Waiting for runner to start...');
-        const startTime = new Date();
-        const maxTimeMinutes = 20; // 最大監視時間
+        log('⏳ Actionsの実行キューを検索しています。少々お待ちください...');
+        
+        const startTime = new Date(Date.now() - 120000); 
+        const maxTimeMinutes = 20; 
         let foundRunId = null;
+        let searchAttempts = 0;
+        let networkErrorCount = 0;
 
         if (pollingInterval) clearInterval(pollingInterval);
 
         pollingInterval = setInterval(async () => {
             try {
-                // タイムアウトチェック
-                if ((new Date() - startTime) > maxTimeMinutes * 60 * 1000) {
-                    throw new Error('Build monitoring timed out.');
+                if ((new Date() - startTime) > maxTimeMinutes * 60 * 1000 + 120000) {
+                    throw new Error('ビルド監視がタイムアウトしました。GitHubのActionsページを直接確認してください。');
                 }
 
-                // ワークフローのRun一覧を取得
-                const runsData = await ghApi('/actions/runs?event=workflow_dispatch&per_page=10');
-                if (runsData.workflow_runs.length === 0) return;
+                const runsData = await ghApi('/actions/runs?event=workflow_dispatch&per_page=5');
+                networkErrorCount = 0; // 成功したらリトライカウンタをリセット
+
+                if (!runsData || runsData.workflow_runs.length === 0) {
+                    if(searchAttempts % 3 === 0) log('⏳ 実行履歴を待機中...');
+                    searchAttempts++;
+                    return;
+                }
 
                 let targetRun = null;
                 if (!foundRunId) {
                     targetRun = runsData.workflow_runs.find(run => new Date(run.created_at) >= startTime);
                     if (targetRun) {
                         foundRunId = targetRun.id;
-                        log(`Target build run found. <a href="${targetRun.html_url}" target="_blank">View on GitHub</a>`);
+                        log(`🚀 ワークフローの実行を検知しました！ <a href="${targetRun.html_url}" target="_blank" style="color:var(--primary);">ブラウザで詳細を確認</a>`);
+                    } else {
+                        if(searchAttempts % 3 === 0) log('⏳ 実行開始を待機中... (GitHub Actions側の反映待ち)');
+                        searchAttempts++;
+                        return;
                     }
                 } else {
                     targetRun = runsData.workflow_runs.find(run => run.id === foundRunId);
@@ -394,30 +927,46 @@
 
                 if (status === 'completed') {
                     clearInterval(pollingInterval);
+                    releaseWakeLock();
                     $('deployBtn').disabled = false;
 
                     if (conclusion === 'success') {
-                        log('Android APK build succeeded!', 'log-suc');
-                        setStatus('status-success', 'Success');
+                        log('🎉 Android APKのビルドが完了しました！', 'log-suc');
+                        setStatus('status-success', 'Build Success');
                         
                         const artifactsUrl = `${targetRun.html_url}#artifacts`;
                         $('downloadLink').href = artifactsUrl;
                         $('downloadArea').style.display = 'block';
-                        log('<b>✅ Download link is ready below.</b>', 'log-suc');
+                        showToast('✅ APKのダウンロード準備ができました');
                     } else {
-                        throw new Error(`Build failed with conclusion: ${conclusion}. Check GitHub Actions logs for details.`);
+                        throw new Error(`ビルドが失敗しました (Conclusion: ${conclusion})。GitHub Actionsのログを確認してください。`);
                     }
                 }
 
             } catch (e) {
+                if (e.message.includes('Failed to fetch') || e.message.includes('ネットワークエラー')) {
+                    networkErrorCount++;
+                    console.error('[Polling Network Error]', e);
+                    if (networkErrorCount < 3) {
+                        log(`⚠️ ネットワークエラー。再試行します (${networkErrorCount}/3)...`, 'log-war');
+                        return; // 終了せず次のインターバルを待つ
+                    }
+                }
+
                 clearInterval(pollingInterval);
-                log(e.message, 'log-err');
-                setStatus('status-error', 'Error');
+                releaseWakeLock();
+                console.error('[Polling Fatal Error]', e);
+                log(`❌ 監視エラー: ${e.message}`, 'log-err');
+                log('💡 詳細なエラー情報を確認するには、ブラウザの開発者ツール (F12) を開き、「Network」タブおよび「Console」タブを確認してください。', 'log-war');
+                setStatus('status-error', 'Monitoring Error');
                 $('deployBtn').disabled = false;
             }
-        }, 10000); // 10秒間隔でポーリング
+        }, 10000); // 10秒ごとにポーリング
     }
-</script>
 
+    // 初期化
+    window.addEventListener('DOMContentLoaded', loadSettings);
+
+</script>
 </body>
 </html>
