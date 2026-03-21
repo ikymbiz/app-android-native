@@ -1041,14 +1041,21 @@ jobs:
 
       - name: Configure Capacitor
         run: |
-          printf '{"appId":"%s","appName":"%s","webDir":"www"}' "\${{ github.event.inputs.app_id }}" "\${{ github.event.inputs.app_name }}" > capacitor.config.json
-          echo "--- capacitor.config.json ---"
-          cat capacitor.config.json
+          node -e "
+            const cfg = {
+              appId: process.argv[1],
+              appName: process.argv[2],
+              webDir: 'www'
+            };
+            require('fs').writeFileSync('capacitor.config.json', JSON.stringify(cfg, null, 2));
+            console.log('--- capacitor.config.json ---');
+            console.log(JSON.stringify(cfg, null, 2));
+          " "\${{ github.event.inputs.app_id }}" "\${{ github.event.inputs.app_name }}"
 
       - name: Install Capacitor
         run: |
           npm init -y
-          npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           echo "--- Installed packages ---"
           npx cap --version
           ls node_modules/@capacitor/
@@ -1441,7 +1448,58 @@ jobs:
                         $('downloadArea').style.display = 'block';
                         showToast('✅ APKのダウンロード準備ができました');
                     } else {
-                        throw new Error(`ビルドが失敗しました (Conclusion: ${targetRun.conclusion})。`);
+                        log(`❌ ビルドが失敗しました (Conclusion: ${targetRun.conclusion})`, 'log-err');
+                        log(`🔗 <a href="${targetRun.html_url}" target="_blank" style="color:var(--primary)">Actions ログを開く</a>`);
+                        
+                        // 失敗したジョブ・ステップのログを自動取得
+                        try {
+                            log('📋 失敗の詳細を取得中...');
+                            const jobsRes = await ghApi(`/actions/runs/${targetRun.id}/jobs`);
+                            if (jobsRes && jobsRes.jobs) {
+                                for (const job of jobsRes.jobs) {
+                                    if (job.conclusion === 'failure') {
+                                        log(`<b>❌ 失敗したジョブ: ${job.name}</b>`, 'log-err');
+                                        const failedSteps = (job.steps || []).filter(s => s.conclusion === 'failure');
+                                        for (const step of failedSteps) {
+                                            log(`   ステップ #${step.number}: "${step.name}" が失敗`, 'log-err');
+                                        }
+                                        // ジョブのログを取得
+                                        try {
+                                            const token = await dbGet('gh_token');
+                                            const logRes = await fetch(`https://api.github.com/repos/${await dbGet('gh_owner')}/${await dbGet('source_repo_name')}/actions/jobs/${job.id}/logs`, {
+                                                headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+                                            });
+                                            if (logRes.ok) {
+                                                const logText = await logRes.text();
+                                                // ログの末尾（エラー付近）を抽出して表示
+                                                const lines = logText.split('\n');
+                                                const errorLines = lines.filter(l => 
+                                                    l.toLowerCase().includes('error') || 
+                                                    l.toLowerCase().includes('fail') ||
+                                                    l.toLowerCase().includes('exception')
+                                                ).slice(-15);
+                                                if (errorLines.length > 0) {
+                                                    log('<b>--- エラーログ抜粋 ---</b>', 'log-err');
+                                                    errorLines.forEach(l => log(l.replace(/</g, '&lt;').substring(0, 300), 'log-err'));
+                                                    log('<b>--- ここまで ---</b>', 'log-err');
+                                                } else {
+                                                    // エラー行がなければ末尾50行
+                                                    log('<b>--- ログ末尾 ---</b>', 'log-war');
+                                                    lines.slice(-50).forEach(l => log(l.replace(/</g, '&lt;').substring(0, 300)));
+                                                    log('<b>--- ここまで ---</b>', 'log-war');
+                                                }
+                                            }
+                                        } catch(logErr) {
+                                            log(`⚠️ ログ取得失敗: ${logErr.message}`, 'log-war');
+                                        }
+                                    }
+                                }
+                            }
+                        } catch(jobErr) {
+                            log(`⚠️ ジョブ詳細の取得に失敗: ${jobErr.message}`, 'log-war');
+                        }
+                        
+                        setStatus('status-error', 'Build Failed');
                     }
                 }
 
