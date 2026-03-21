@@ -1,90 +1,111 @@
-# ⚡ Native App Packager
+提供されたHTML（シングルページアプリケーション）のソースコードを分析し、プロジェクトの魅力を最大限に伝える高品質な `README.md` を作成しました。
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)](#)
-[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black)](#)
-[![Capacitor](https://img.shields.io/badge/Capacitor-119EFF?logo=capacitor&logoColor=white)](#)
-[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?logo=github-actions&logoColor=white)](#)
-
-ブラウザ上の操作だけで、あなたのWebアプリケーション（HTML/CSS/JS）を**Androidネイティブアプリ（APK）に自動変換**する完全なフロントエンドツールです。
-
-ローカル環境での Node.js や Android Studio のセットアップは一切不要。GitHub Actions の強力なクラウドビルド環境を利用して、Webブラウザから直接 Android アプリを生成・ダウンロードできます。
-
-## ✨ 主な機能
-
-- **📱 環境構築ゼロ**: Webブラウザさえあれば、PC・スマホ問わずどこからでもビルドを開始できます。
-- **📦 柔軟なアセット入力**:
-  - **ローカル**: フォルダのドラッグ＆ドロップで一括アップロード。
-  - **GitHub**: 既存リポジトリから特定のパス・ファイルを選択してインポート。
-- **🎨 アプリアイコン＆ID管理**: アプリ名からのアイコン自動生成機能や、カスタム画像のアップロードに対応。パッケージIDもワンクリックで自動生成。
-- **☁️ GitHub Actions 自動化**: Capacitor v6 を利用したビルド用ワークフローファイル（`build-apk.yml`）を対象リポジトリへ自動生成・配置し、ビルドをトリガーします。
-- **🔍 リアルタイム監視**: 画面上のコンソールでビルドの進行状況やGitHub Actionsのステータスをリアルタイムにポーリング監視。
-- **📥 ダイレクトダウンロード**: ビルド完了後、生成されたAPKファイルをブラウザから直接ダウンロード可能。
-- **🔒 安全なローカル保存**: GitHubトークンや設定情報は、ブラウザの `IndexedDB` にのみ保存されます。
-- **🌐 PWA対応**: Progressive Web Appとしてデバイスにインストール可能です（Wake Lock APIにも対応し、ビルド中のスリープを防止）。
-
-## 🏗️ 仕組み (How it works)
-
-本ツールはバックエンドサーバーを持ちません。すべてブラウザ上で完結し、以下のフローで動作します：
-
-1. **設定**: Web UI上でアプリ名、アイコン、パッケージIDを設定。
-2. **ソース選択**: ローカルファイル、またはGitHubリポジトリからWebアセット（`index.html` 等）を選択。
-3. **デプロイ準備**: ブラウザがGitHub APIを使用し、ファイルをZIP化（ローカルの場合）して対象リポジトリにプッシュ。同時にビルド用のYAMLワークフローをコミットします。
-4. **クラウドビルド**: GitHub Actions が自動的に起動し、`Capacitor` を用いてWebアセットをAndroidアプリにラップ・コンパイルします。
-5. **ダウンロード**: Web UIがビルドの完了を検知すると、ActionsのArtifacts（成果物）からAPKを直接ダウンロードします。
-
-## 📋 前提条件
-
-このツールを使用するには、以下が必要です。
-
-- **GitHubアカウント**
-- **GitHub Personal Access Token (PAT)**
-  - 必要な権限 (Classic Token の場合): `repo` (リポジトリの読み書き) および `workflow` (Actionsの実行)
-  - または同等の権限を持つ Fine-grained Token
-- **作業用のGitHubリポジトリ**（ビルドを実行するための空リポジトリ、または既存リポジトリ）
-
-## 🚀 使い方
-
-### Step 1: 初期設定 (GitHub連携)
-1. 画面右上の ⚙️ (設定) アイコンをクリックします。
-2. 取得した **GitHub PAT** を入力し、「💾 トークンを保存して接続」をクリックします。
-3. ユーザー名が自動取得されたら設定画面を閉じます。
-
-### Step 2: アプリの設定
-1. **アプリの表示名** を入力します。
-2. **パッケージID** を入力または「自動生成」ボタンで設定します（例: `com.example.myapp`）。
-3. 必要に応じて **アプリアイコン** をアップロードします（未設定の場合はアプリ名から自動生成されます）。
-
-### Step 3: Webアセット (www) の選択
-**ローカルからアップロードする場合:**
-- フォルダを選択するか、点線エリアにHTML/CSS/JSファイルをドラッグ＆ドロップします。
-- `index.html` が含まれていることを確認してください。
-
-**GitHubから選択する場合:**
-- 「GitHubから選択」のラジオボタンをオンにします。
-- 対象のリポジトリとパス（例: `/dist` や `/`）を指定し、「📂 ファイル一覧を取得」をクリックして対象ファイルを選択します。
-
-### Step 4: ビルドとダウンロード
-1. 画面下部の **「🚀 パッケージ & デプロイ」** ボタンをクリックします。
-2. 画面下の **Deployment Logs** に進行状況が表示されます。ブラウザを閉じずにお待ちください（通常数分かかります）。
-3. ビルドが成功すると、**「📥 APKをダウンロード」** リンクが出現します。クリックしてアプリを手に入れましょう！
-
-## 🛠️ 使用技術
-
-- **UI / ロジック**: HTML5, CSS3, Vanilla JavaScript
-- **ブラウザ API**: IndexedDB, Wake Lock API, File System Access API
-- **依存ライブラリ**: [JSZip](https://stuk.github.io/jszip/) (ローカルファイルのZIP圧縮)
-- **ビルドシステム**: GitHub Actions (Ubuntu), [Ionic Capacitor](https://capacitorjs.com/), Android SDK (Java 17)
-
-## ⚠️ 注意事項・制限事項
-
-- **Android専用**: 現在生成されるワークフローは Android (APK) のビルドのみに対応しています。iOSアプリ（IPA）のビルドには macOS ランナーと Apple Developer プログラムの証明書が必要なため、本ツールではサポート外です。
-- **ファイルサイズ制限**: GitHub APIの制限により、極端に大容量な動画やアセットを含むWebアプリのローカルアップロード（Base64エンコードを含むAPI経由でのプッシュ）は失敗する可能性があります。大規模なアプリの場合は「GitHubから選択」モードの使用を推奨します。
-- **ブラウザの互換性**: フォルダのアップロード機能（`webkitdirectory`）はモダンブラウザ（Chrome, Edge, Safari等）でのみ動作します。
-
-## 📜 ライセンス
-
-このプロジェクトは [MIT License](LICENSE) の下で公開されています。ご自由に改変・再配布してご活用ください。
+そのままコピー＆ペーストしてプロジェクトのルートディレクトリに配置してご利用いただけます。
 
 ---
-*Created with ⚡ Native App Packager*
+
+```markdown
+# ⚡ Native App Packager
+
+[![Web App](https://img.shields.io/badge/Platform-Web%20Browser-blue.svg)](https://developer.mozilla.org/en-US/docs/Web)
+[![GitHub API](https://img.shields.io/badge/Integration-GitHub%20API-black.svg)](https://docs.github.com/en/rest)
+[![Capacitor](https://img.shields.io/badge/Build-Capacitor%206-119eff.svg)](https://capacitorjs.com/)
+[![Android](https://img.shields.io/badge/Target-Android%20APK-3DDC84.svg)](https://www.android.com/)
+
+Webアプリケーション（HTML / CSS / JavaScript）を、ブラウザ上の直感的な操作だけで **Android ネイティブアプリ (APK)** に変換・ビルドする画期的なSPA（シングルページアプリケーション）ツールです。
+
+ローカルPCに Node.js、Android Studio、Java などの開発環境を構築する必要は一切ありません。ブラウザとGitHubアカウントさえあれば、GitHub Actions の強力なクラウドCI/CDを利用して数分でAPKを生成します。
+
+## ✨ 主な機能 (Features)
+
+- **🚀 フルクラウドビルド**: ローカルマシンのリソースを消費せず、GitHub Actions上で Capacitor を用いたビルドを完全自動化。
+- **📁 選べるアセットソース**:
+  - **ローカル**: フォルダのドラッグ＆ドロップで一括読み込み（内部で自動的にZIP圧縮してアップロード）。
+  - **GitHub**: 既存のリポジトリパスを指定し、ファイル一覧を取得して特定のアセットのみを選択可能。
+- **🎨 スマートなUI/UX**:
+  - アプリ名に基づいた**スタイリッシュな初期アイコンの自動生成**（カスタム画像のアップロードも対応）。
+  - `index.html` や `README.md` をパースし、**アプリ表示名を自動推論**。
+  - ハッシュを利用した**パッケージID（`com.example.xxx`）の自動生成機能**。
+- **📡 リアルタイム監視**: GitHub Actions のビルド進行状況やログを、画面下部のコンソールにリアルタイムでポーリング表示。
+- **📥 ダイレクトダウンロード**: ビルドが成功すると、GitHub ArtifactsからブラウザへAPKを直接ダウンロード可能。
+- **🔒 セキュア・バイ・デザイン**: GitHub Token（PAT）や設定データはブラウザ内の IndexedDB にのみ保存され、開発者のサーバー等へ送信されることはありません。
+- **📱 PWA完全対応**: スマートフォンやPCのブラウザにインストールし、独立したアプリとして動作します（Wake Lock APIによるスリープ防止機能付き）。
+
+---
+
+## 🏗️ アーキテクチャ (How it works)
+
+本アプリケーションはバックエンドサーバーを持たない完全なクライアントサイド実装です。
+
+1. **設定 & 連携**: ユーザーが入力した GitHub Token を利用し、直接 GitHub REST API と通信します。
+2. **アセット準備**: Webアセットを準備し、必要に応じてZIP化して対象のリポジトリへアップロードします。
+3. **CI/CD構築**: アプリビルド用のワークフローYAML (`build-apk.yml`) を対象リポジトリに自動コミットします。
+4. **ビルドトリガー**: `workflow_dispatch` イベントを発火させ、リモート環境で Node.js 22 + Java 17 + Capacitor 6 による Android APK ビルドを開始します。
+5. **ポーリング**: GitHub API を通じて Actions の実行ステータスを監視し、完了後に Artifacts からダウンロードリンクを抽出します。
+
+---
+
+## 📋 前提条件 (Prerequisites)
+
+このツールを利用するには、以下の準備が必要です。
+
+1. **GitHub アカウント**
+2. **ビルド用の（空の）リポジトリ**
+   - Webアセットの一時保存と GitHub Actions の実行環境として使用します。
+3. **GitHub Personal Access Token (PAT)**
+   - **Classic Token の場合**: `repo` および `workflow` スコープが必要です。
+   - **Fine-grained Token の場合**: 対象リポジトリに対する `Contents` (Read/Write) および `Actions/Workflows` (Read/Write) 権限が必要です。
+
+---
+
+## 🚀 使い方 (Getting Started)
+
+### 1. GitHub トークンの設定
+1. 画面右上の **⚙️ (歯車アイコン)** をクリックして設定を開きます。
+2. 取得した GitHub PAT を入力し、「💾 トークンを保存して接続」をクリックします。
+3. 認証が成功すると、自動的にあなたのリポジトリ一覧が取得されます。
+
+### 2. アプリ情報の設定
+1. **アプリの表示名**: ホーム画面に表示されるアプリ名を入力します。
+2. **パッケージID**: `com.yourname.app` の形式で入力します（「自動生成」ボタンで一意のIDを作成可能）。
+3. **アプリアイコン**: 必要に応じて正方形のPNG画像（512x512推奨）をアップロードします。
+
+### 3. Webアセットの指定
+ビルド対象のリポジトリ（実行先）を選択し、以下のいずれかの方法でファイルを選択します。
+- **ローカルからアップロード**: ドラッグ＆ドロップで `index.html` を含むフォルダを読み込みます。
+- **GitHubから選択**: 対象リポジトリ内のパス（例: `/dist`）を指定し、「ファイル一覧を取得」して含めたいファイルにチェックを入れます。
+
+### 4. パッケージング ＆ デプロイ
+1. **「🚀 パッケージ & デプロイ」** ボタンをクリックします。
+2. 画面下部のコンソールにログが表示され、GitHub Actions によるビルドが開始されます。
+3. （通常3〜5分程度で）ビルドが完了すると、「📥 APKをダウンロード」ボタンが表示されます。
+4. ダウンロードしたAPKをAndroid端末に転送し、インストールしてください。
+
+---
+
+## ⚠️ 制限事項・注意事項
+
+- **エントリーポイント**: 選択するファイル群のルート階層に必ず `index.html` が含まれている必要があります。含まれていない場合、ビルド時にエラーとなります。
+- **アイコンのファイルサイズ**: 高解像度すぎるアイコン画像は、GitHub API のペイロード制限（65535文字）に引っかかる場合があります。その場合は自動的にリポジトリへの直接コミットにフォールバックされます。
+- **ブラウザサポート**: ローカルディレクトリの読み込みには File System API を使用しているため、Chrome / Edge / Safari などのモダンブラウザでの利用を推奨します。
+
+---
+
+## 🛡️ セキュリティとプライバシー
+
+本アプリケーションは、**ユーザーのデータを一切収集しません**。
+- GitHub Token やソースコードは、ご利用の端末（ブラウザの IndexedDB）と GitHub サーバー間で直接通信されます。
+- 中間サーバーを介在しないため、認証情報が漏洩する心配はありません。安全のため、使用後は「⚙️ 設定 > 🗑️ 設定を初期化」から端末内のデータをクリアすることができます。
+
+---
+
+## 📄 ライセンス (License)
+
+このプロジェクトは [MIT License](LICENSE) のもとで公開されています。自由に複製、変更、再配布することが可能です。
+```
+
+### 💡 README作成時の工夫ポイント
+1. **バッジの配置**: 一目で使用技術やターゲットがわかるようにシールドバッジを配置しました。
+2. **ユーザーのメリットを強調**: 「ローカル環境構築不要」「スマホブラウザからでもビルド可能」というこのコード最大の強みを冒頭でアピールしています。
+3. **セキュリティの明記**: PAT（Personal Access Token）という機密情報を扱うツールであるため、サーバーレスで安全であることを別セクションで強調し、ユーザーの不安を払拭しています。
+4. **仕組み（Architecture）の可視化**: 内部で `build-apk.yml` を自動生成してコミット・ディスパッチするという少し特殊で高度な仕組みをわかりやすく箇条書きにしました。
