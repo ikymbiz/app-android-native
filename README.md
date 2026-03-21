@@ -1,119 +1,97 @@
-
 # ⚡ Native App Cloud Packager & Deployer
 
-Webブラウザ上でHTML/CSS/JSなどのWebアセットをZIP圧縮し、直接GitHubへプッシュ。その後自動でGitHub Actionsをトリガーしてネイティブアプリ（Android APK等）のクラウドビルドを行い、結果を受け取るまでを完結させるワンストップWebツールです。
+Webアプリケーションの資産（HTML, CSS, JS, 画像など）をブラウザ上でパッケージングし、GitHubリポジトリへ直接デプロイ。そのままクラウド上（GitHub Actions）でネイティブアプリ（APK等）のビルドをトリガーし、完成したアプリをダウンロードできるワンストップのシングルページアプリケーション（SPA）です。
 
-バックエンドサーバーは一切不要で、ブラウザとGitHub APIのみで動作します。
+サーバーの構築は不要で、このHTMLファイルをブラウザで開くだけで動作します。
 
 ## ✨ 主な機能
 
-- 📦 **ブラウザ内ローカル圧縮**: `JSZip` を使用し、ドラッグ＆ドロップしたファイルをクライアントサイドでZIP化 (`www.zip`) します。
-- 🚀 **シームレスなデプロイ**: GitHub REST APIを利用し、ZIPファイルのプッシュからワークフローのトリガーまでをワンクリックで実行します。
-- 🔄 **リアルタイム・ビルド監視**: GitHub Actionsの実行状況をポーリングし、画面内のコンソールで進捗をリアルタイムにお知らせします。
-- 📥 **ダイレクトダウンロード**: ビルド成功時、GitHub Artifacts（生成されたAPKなど）へのダウンロードリンクを即座に表示します。
-- 🔒 **セキュアな設計**: 入力されたGitHub PAT（Personal Access Token）はブラウザの `localStorage` のみに保存され、外部サーバーへは送信されません。
-
-## 🛠️ アーキテクチャ
-
-1. **[Client]** ユーザーがWebファイルをD&Dで選択。
-2. **[Client]** メモリ上で `www.zip` を生成し、Base64エンコード。
-3. **[GitHub API]** 対象リポジトリへ `www.zip` をコミット＆プッシュ。
-4. **[GitHub API]** `workflow_dispatch` イベントを発火させ、アプリ名・パッケージIDを渡す。
-5. **[Client]** Actionsの実行状況を数秒ごとにポーリング監視。
-6. **[GitHub Actions]** クラウド上でネイティブビルドを実行し、Artifactを出力。
-
-## 📋 必要な前提条件
-
-このツールを使用するには、あらかじめ以下の準備が必要です。
-
-1. **GitHub アカウント & リポジトリ**
-2. **GitHub Personal Access Token (PAT)**
-   - 推奨: **Fine-grained PAT**
-   - 必要なスコープ:
-     - `Contents`: **Read and Write** (ファイルのアップロード用)
-     - `Actions`: **Read and Write** (ワークフローの実行と監視用)
-3. **ターゲットリポジトリの Actions 設定**
-   - リポジトリ内にビルド用のワークフローファイル (`.github/workflows/build-apk.yml`) が必要です。（詳細は後述）
-
-## 🚀 使い方
-
-1. このHTMLファイル (`index.html`) をブラウザで開きます。（ローカルファイルとして開くか、GitHub Pages等でホスティングしてください）
-2. **GitHub Settings** セクションに以下を入力します。
-   - GitHub PAT (保存ボタンで次回以降の入力を省略可能)
-   - GitHub ユーザー名 または Organization名
-   - 対象のリポジトリ名
-3. **App Config** セクションに以下を入力します。
-   - アプリの表示名 (例: `My Awesome App`)
-   - パッケージID (例: `com.example.app`)
-4. 画面中央のドロップゾーンに、アプリを構成するWebファイル（`index.html` 必須）をドラッグ＆ドロップします。
-5. **「🚀 パッケージ & デプロイ」** ボタンをクリックします。
-6. コンソールに進行状況が表示されます。ビルド完了後、ダウンロードリンクからアプリを取得してください！
-
-## ⚙️ 必須: GitHub Actions 側の設定
-
-このツールは、ターゲットリポジトリの `.github/workflows/build-apk.yml` を呼び出します。
-リポジトリ側に以下のようなワークフローファイルを作成して配置してください。
-
-```yaml
-# .github/workflows/build-apk.yml の例 (Capacitorを使用したAndroidビルドのイメージ)
-name: Build Native App
-
-on:
-  workflow_dispatch:
-    inputs:
-      app_name:
-        description: 'App Name'
-        required: true
-        default: 'My App'
-      app_id:
-        description: 'App Package ID'
-        required: true
-        default: 'com.example.app'
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Unzip Web Assets
-        run: |
-          mkdir -p www
-          unzip -o www.zip -d www
-
-      # --- ここに Capacitor や Cordova のビルドプロセスを記述 ---
-      # 例: npm install, npx cap add android, npx cap copy, ./gradlew assembleDebug など
-      
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: app-release
-          # ビルドされたAPKのパスを指定してください
-          path: android/app/build/outputs/apk/debug/app-debug.apk 
-```
-*(※ 上記は構成例です。実際のアプリのビルド環境（Capacitor, Cordova, React Nativeなど）に合わせて適宜カスタマイズしてください。)*
-
-## ⚠️ 注意事項
-
-- 対象ファイルの中に必ず `index.html` が含まれていることを確認してください（ツール内で警告が表示されます）。
-- 巨大なファイルをアップロードしようとすると、ブラウザのメモリ制限やGitHub APIのペイロード制限（通常は100MB未満）に引っかかる可能性があります。大規模なアセットを扱う場合はご注意ください。
-- GitHub Actionsの実行にはリポジトリの無料枠（または課金）が消費されます。
-
-## 📄 ライセンス
-
-MIT License
+- **📦 ブラウザ完結のパッケージング**: `JSZip` を活用し、ローカルのブラウザ上でWebファイルを即座に `www.zip` として圧縮。
+- **☁️ クラウドダイレクトデプロイ**: GitHub REST API を使用し、ローカルから直接対象リポジトリへZIPファイルをコミット＆プッシュ。
+- **🤖 GitHub Actions 自動トリガー**: プッシュ完了後、指定されたワークフロー（`build-apk.yml`）を自動的に実行。アプリ名とパッケージIDを変数として渡します。
+- **🔄 リアルタイム・ビルド監視**: Actionsのビルドステータスを自動でポーリング。完了するとArtifactsのダウンロードリンクを即座にUIに表示します。
+- **🎨 モダンなUI/UX**: ダークテーマを採用。ドラッグ＆ドロップによる直感的なファイル選択、詳細な進行状況がわかる専用コンソール画面を搭載。
+- **🔒 セキュアな設定管理**: GitHub PAT（Personal Access Token）などの機密情報は、ブラウザの `localStorage` にのみ保存され、外部サーバーには送信されません。
 
 ---
-*Created with ❤️ for smooth web-to-native app deployments.*
+
+## ⚙️ 前提条件 (Prerequisites)
+
+このツールを動作させるためには、以下のGitHub側の準備が必要です。
+
+### 1. GitHub Personal Access Token (PAT)
+以下の権限を持つ **Fine-grained PAT**（または Classic PAT）が必要です。
+- **Contents**: Read & Write (ファイルのプッシュに必要)
+- **Actions**: Read & Write (ワークフローの実行と監視に必要)
+- **Metadata**: Read (リポジトリ一覧の取得に必要)
+
+### 2. 対象リポジトリの設定
+対象となるGitHubリポジトリの `.github/workflows/` ディレクトリ内に、以下の条件を満たす `build-apk.yml` という名前のワークフローファイルが存在している必要があります。
+- `workflow_dispatch` イベントでトリガーされること。
+- `app_name` および `app_id` を inputs として受け取ること。
+- リポジトリのルートに配置される `www.zip` を解凍し、ビルド処理を行うこと。
+- 成果物（APKなど）を Artifacts としてアップロードすること。
+
+---
+
+## 🚀 使い方 (Usage)
+
+1. **ツールの起動**
+   本プロジェクトの `index.html` をダブルクリック等でモダンブラウザ（Chrome, Edge, Firefox, Safari等）で開きます。
+
+2. **GitHub設定 (Sidebar)**
+   - **GitHub PAT**: 取得したトークンを入力し、「保存」ボタンを押します。
+   - **GitHub ユーザー名**: ご自身のGitHubユーザー名を入力します。
+   - **リポジトリ名**: 「🔄 取得」ボタンを押すと、自動的にリポジトリ一覧が読み込まれます。デプロイ先のリポジトリを選択してください。
+
+3. **アプリ設定 (Sidebar)**
+   - **アプリの表示名**: ビルドするアプリの名前（例: `My Cool App`）
+   - **パッケージID**: アプリの一意の識別子（例: `com.yourdomain.app`）
+
+4. **ファイルの選択 (Main Content)**
+   - 画面中央のドロップゾーンに、アプリを構成するWebファイル（`index.html`, `style.css`, `app.js` など）をドラッグ＆ドロップします。
+   - ⚠️ **注意**: アプリのエントリーポイントとなる `index.html` が必ず含まれていることを確認してください。
+
+5. **デプロイとビルドの実行**
+   - 「🚀 パッケージ & デプロイ」ボタンをクリックします。
+   - コンソールに進行状況（ZIP化 ➔ SHA取得 ➔ アップロード ➔ Actionsトリガー）が表示されます。
+   - ビルドプロセスがキューに追加されると、ツールが自動的に進捗を監視（ポーリング）します。
+
+6. **ダウンロード**
+   - ビルドが正常に完了すると、「✅ Success」と表示され、Artifacts（APK）のダウンロードリンクが出現します。リンクをクリックしてアプリを取得してください。
+
+---
+
+## 🏗️ アーキテクチャ・動作フロー
+
+本ツールは以下の順序でバックグラウンド処理を実行します。
+
+1. **ZIP生成**: `JSZip` を用いて、選択されたファイルをルート階層に持つZIPデータをメモリ上で生成（Base64エンコード）。
+2. **SHA取得 (`GET /contents/www.zip`)**: 対象リポジトリに既存の `www.zip` があるか確認し、上書き用のSHAハッシュを取得（新規作成の場合はスキップ）。
+3. **ファイルのプッシュ (`PUT /contents/www.zip`)**: 生成したZIPデータをリポジトリにコミット＆プッシュ。
+4. **ワークフロー実行 (`POST /actions/.../dispatches`)**: `build-apk.yml` をキックし、設定した `app_name` と `app_id` をペイロードとして送信。
+5. **ポーリング (`GET /actions/runs`)**: 10秒間隔でAPIを叩き、対象のビルドの `status` と `conclusion` を監視。
+
+---
+
+## ⚠️ セキュリティ・注意事項
+
+- **トークンの取り扱い**: GitHub PAT は非常に強力な権限を持ちます。本ツールは `localStorage` にトークンを保存しますが、共有PC等で利用する場合は、使用後に設定の「保存」ボタン横の入力欄を空にして再度保存を押し、トークンを破棄することを強く推奨します。
+- **ファイルサイズ制限**: ブラウザのメモリ上でZIP圧縮を行い、Base64でGitHub APIに送信するため、数百MBに及ぶ巨大なアセット（大量の高画質動画など）のパッケージングには適していません。通常のWebアプリ・SPA程度のサイズを想定しています。
+- **APIレート制限**: GitHub APIを利用しているため、短時間に過度なデプロイを繰り返すとGitHub側のレート制限に引っかかる可能性があります。
+
+---
+
+## 📜 ライセンス
+
+このプロジェクトは [MIT License](LICENSE) のもとで公開されています。自由に改変・再配布が可能です。
+
+---
+*Built with Vanilla JS, HTML5, CSS3, and ❤️.*
 ```
 
-### 💡 README作成のポイント
-- **「なぜこのコードだけで動かないのか（依存関係）」を明確化**: ツールが送信する `workflow_dispatch` リクエストや `build-apk.yml` の呼び出しに対応するため、GitHubリポジトリ側にどのような `yml` ファイルを用意すべきかの具体例（サンプルコード）を提示しました。
-- **アーキテクチャの明示**: HTMLソースコード内で実行されている「ZIP化 → API PUT → API POST(dispatch) → API GET(ポーリング)」という処理の流れを箇条書きにし、エンジニアがコードを読まずとも仕様を理解できるようにしました。
-- **セキュリティの強調**: PAT（パスワード同等の権限）を扱うため、「サーバーレスであること」「`localStorage`のみに保存されること」を強調し、ユーザーの不安を払拭する構成にしました。
+### 作成のポイント
+*   **視覚的なわかりやすさ**: Emojiを適度に使い、セクションを明確に分けました。
+*   **前提条件の明記**: このHTML単体では完結せず、GitHub側に `build-apk.yml` などの受け入れ口が必要であるという（コードから読み取れる）重要な事実を「前提条件」として分かりやすく記載しました。
+*   **動作フローの解説**: APIをどのような順序で叩いているか（GET -> PUT -> POST -> Polling）をアーキテクチャとして記載し、開発者がカスタマイズしやすいようにしました。
+*   **セキュリティへの言及**: PAT（トークン）を扱うブラウザアプリであるため、その安全性と注意点について触れています。
