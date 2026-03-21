@@ -174,6 +174,7 @@
             height: 250px;
             background: #0d0d0d;
             border-top: 1px solid var(--border);
+            flex-shrink: 0;
         }
         .status-bar {
             padding: 10px 20px;
@@ -285,10 +286,23 @@
             <div class="form-group">
                 <label>アプリの表示名</label>
                 <input type="text" id="appName" placeholder="My App" value="My Packaged App">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 6px 0 0 0;">アセット選択時に、index.htmlやREADMEから自動取得を試みます。</p>
             </div>
             <div class="form-group">
                 <label>パッケージID (例: com.example.app)</label>
-                <input type="text" id="appId" placeholder="com.example.pkgapp" value="com.example.pkgapp">
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="appId" placeholder="com.example.pkgapp" value="com.example.pkgapp" style="flex-grow: 1;">
+                    <button type="button" class="btn btn-secondary btn-small" id="generateAppIdBtn">自動生成</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>アプリアイコン (PNG推奨, 512x512)</label>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <img id="appIconPreview" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23333'/%3E%3Ctext x='50' y='50' fill='%23777' font-size='24' dominant-baseline='middle' text-anchor='middle'%3EIcon%3C/text%3E%3C/svg%3E" alt="Icon" style="width: 48px; height: 48px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border);">
+                    <input type="file" id="appIconInput" accept="image/png, image/jpeg" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-small" id="selectIconBtn">画像を選択</button>
+                    <button type="button" class="btn btn-secondary btn-small" id="clearIconBtn" style="display: none; border-color: var(--error); color: var(--error);">削除</button>
+                </div>
             </div>
         </div>
 
@@ -534,10 +548,74 @@
         });
     };
 
+    // --- アイコン設定 ---
+    let currentIconBase64 = '';
+    
+    $('selectIconBtn').onclick = () => $('appIconInput').click();
+    $('appIconInput').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            currentIconBase64 = ev.target.result;
+            $('appIconPreview').src = currentIconBase64;
+            $('clearIconBtn').style.display = 'inline-flex';
+            await dbSave('app_icon', currentIconBase64);
+            showToast('✅ アプリアイコンを保存しました');
+        };
+        reader.readAsDataURL(file);
+    };
+
+    $('clearIconBtn').onclick = async () => {
+        currentIconBase64 = '';
+        $('appIconPreview').src = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23333'/%3E%3Ctext x='50' y='50' fill='%23777' font-size='24' dominant-baseline='middle' text-anchor='middle'%3EIcon%3C/text%3E%3C/svg%3E";
+        $('clearIconBtn').style.display = 'none';
+        $('appIconInput').value = '';
+        await dbSave('app_icon', '');
+        showToast('🗑️ アイコンをクリアしました');
+    };
+
+    // --- パッケージID自動生成 ---
+    $('generateAppIdBtn').onclick = async () => {
+        const name = $('appName').value.trim() || 'my app';
+        const base = name.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+        const hash = Math.random().toString(36).substring(2, 10);
+        const newId = `com.example.${base || 'app'}.${hash}`;
+        $('appId').value = newId;
+        await dbSave('app_id', newId);
+        showToast(`🎲 パッケージIDを生成しました: ${newId}`);
+    };
+
+    // --- アプリ表示名自動取得ロジック ---
+    const trySetAppName = async (name) => {
+        if (!name) return;
+        $('appName').value = name;
+        await dbSave('app_name', name);
+        showToast(`📝 アプリ表示名を「${name}」に自動設定しました`);
+    };
+
+    const extractAppNameFromLocal = async (files) => {
+        const indexHtml = Array.from(files).find(f => f.name.toLowerCase() === 'index.html');
+        if (indexHtml) {
+            const text = await indexHtml.text();
+            const match = text.match(/<title>([^<]*)<\/title>/i);
+            if (match && match[1].trim()) return match[1].trim();
+        }
+        const readme = Array.from(files).find(f => f.name.toLowerCase() === 'readme.md' || f.name.toLowerCase() === 'readme.txt');
+        if (readme) {
+            const text = await readme.text();
+            const lines = text.split('\n');
+            const firstLine = lines.find(l => l.trim().length > 0);
+            if (firstLine) return firstLine.replace(/^#+\s*/, '').trim();
+        }
+        return null;
+    };
+
     // --- UI State & Settings Management ---
     const loadSettings = async () => {
         const appName = await dbGet('app_name');
         const appId = await dbGet('app_id');
+        const appIcon = await dbGet('app_icon');
         const token = await dbGet('gh_token');
         const owner = await dbGet('gh_owner');
         const sourceType = await dbGet('source_type') || 'local';
@@ -545,6 +623,11 @@
         
         if (appName) $('appName').value = appName;
         if (appId) $('appId').value = appId;
+        if (appIcon) {
+            currentIconBase64 = appIcon;
+            $('appIconPreview').src = appIcon;
+            $('clearIconBtn').style.display = 'inline-flex';
+        }
         if (sourceRepoPath) $('sourceRepoPath').value = sourceRepoPath;
 
         const radio = document.querySelector(`input[name="sourceType"][value="${sourceType}"]`);
@@ -747,6 +830,9 @@
             });
             showToast(`📁 ${selectedFiles.length}個のファイルを選択しました`);
             if (!hasIndexHtml) log('⚠️ 警告: index.html が含まれていません。アプリが正常に起動しない可能性があります。', 'log-war');
+            
+            // アプリ表示名の自動取得
+            extractAppNameFromLocal(files).then(name => trySetAppName(name));
         } else {
             fileListArea.style.display = 'none';
             localFileControls.style.display = 'none';
@@ -811,6 +897,29 @@
                     listArea.appendChild(el);
                 });
                 showToast(`✅ ${items.length}件のアイテムを取得しました`);
+
+                // アプリ表示名の自動取得 (非同期実行)
+                (async () => {
+                    let indexHtml = items.find(i => i.name.toLowerCase() === 'index.html');
+                    if (indexHtml) {
+                        try {
+                            const res = await ghApi(`/repos/${owner}/${repo}/contents/${indexHtml.path}`);
+                            const text = decodeURIComponent(escape(atob(res.content)));
+                            const match = text.match(/<title>([^<]*)<\/title>/i);
+                            if (match && match[1].trim()) return trySetAppName(match[1].trim());
+                        } catch(e){}
+                    }
+                    let readme = items.find(i => i.name.toLowerCase() === 'readme.md' || i.name.toLowerCase() === 'readme.txt');
+                    if (readme) {
+                        try {
+                            const res = await ghApi(`/repos/${owner}/${repo}/contents/${readme.path}`);
+                            const text = decodeURIComponent(escape(atob(res.content)));
+                            const lines = text.split('\n');
+                            const firstLine = lines.find(l => l.trim().length > 0);
+                            if (firstLine) return trySetAppName(firstLine.replace(/^#+\s*/, '').trim());
+                        } catch(e){}
+                    }
+                })();
             } else {
                 clearGhFileList();
                 showToast('⚠️ 指定されたパスにファイルが見つかりません');
@@ -855,6 +964,10 @@ on:
         required: false
       selected_files:
         description: '対象ファイル (カンマ区切り)'
+        default: ''
+        required: false
+      app_icon_base64:
+        description: 'アプリアイコン (Base64)'
         default: ''
         required: false
 
@@ -949,6 +1062,28 @@ jobs:
           npx cap add android || true
           npx cap sync android
 
+      - name: Set App Icon and PWA Manifest
+        if: github.event.inputs.app_icon_base64 != ''
+        run: |
+          mkdir -p temp_icon
+          echo "\${{ github.event.inputs.app_icon_base64 }}" | base64 -d > temp_icon/icon.png
+          RES_DIR="android/app/src/main/res"
+          if [ -d "$RES_DIR" ]; then
+            for dpi in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+              mkdir -p "$RES_DIR/mipmap-\$dpi"
+              cp temp_icon/icon.png "$RES_DIR/mipmap-\$dpi/ic_launcher.png" || true
+              cp temp_icon/icon.png "$RES_DIR/mipmap-\$dpi/ic_launcher_round.png" || true
+            done
+          fi
+          mkdir -p www/assets/icons
+          cp temp_icon/icon.png www/assets/icons/icon.png || true
+          echo '{
+            "name": "\${{ github.event.inputs.app_name }}",
+            "short_name": "\${{ github.event.inputs.app_name }}",
+            "display": "standalone",
+            "icons": [{ "src": "assets/icons/icon.png", "sizes": "512x512", "type": "image/png" }]
+          }' > www/manifest.json
+
       - name: Build APK
         run: |
           cd android
@@ -998,6 +1133,11 @@ jobs:
         const btn = $('deployBtn');
         const appName = $('appName').value || 'My App';
         const appId = $('appId').value || 'com.example.app';
+        let pureBase64Icon = '';
+        if (currentIconBase64 && currentIconBase64.includes(',')) {
+            pureBase64Icon = currentIconBase64.split(',')[1];
+        }
+
         $('downloadArea').style.display = 'none';
 
         try {
@@ -1059,7 +1199,8 @@ jobs:
                     source_type: sourceType,
                     source_repo: sourceType === 'github' ? `${owner}/${sourceRepo}` : '',
                     source_path: sourceType === 'github' ? sourcePath : '/',
-                    selected_files: selectedGhPaths
+                    selected_files: selectedGhPaths,
+                    app_icon_base64: pureBase64Icon
                 } 
             });
             log('✅ ワークフローのディスパッチ成功.', 'log-suc');
