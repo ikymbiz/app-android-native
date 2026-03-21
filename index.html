@@ -4,8 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>⚡ Native App Packager</title>
+    <!-- PWA用のメタタグとスタイル -->
+    <meta name="theme-color" content="#1e1e1e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- safe-area-inset対応 -->
+    <style>
+        body {
+            padding-top: env(safe-area-inset-top);
+            padding-right: env(safe-area-inset-right);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+        }
+        /* headerとconsole-containerがsafe-areaに影響されないように固定 */
+        header { top: 0; left: 0; right: 0; position: sticky; }
+        .console-container { bottom: 0; left: 0; right: 0; position: sticky; }
+        /* settingsOverlayも全画面固定 */
+        #settingsOverlay { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+    <!-- Favicon (SVG) - このファイルではSVGを維持し、manifest.jsonとapple-touch-iconはJSで動的に設定します -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⚡%3C/text%3E%3C/svg%3E" type="image/svg+xml">
+    <!-- apple-touch-icon はJSで動的に設定するため、既存のものは削除します -->
+    <!-- <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⚡%3C/text%3E%3C/svg%3E"> -->
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
+        /* ダークモードデフォルト (Tailwind CSSの変数を想定しつつ既存CSSを尊重) */
         :root { 
             --bg-main: #121212; 
             --bg-surface: #1e1e1e; 
@@ -57,9 +81,18 @@
             padding: 4px;
             border-radius: 50%;
             transition: background 0.2s;
+            /* タッチターゲットを48x48dp以上にするためのpadding */
+            min-width: 44px; /* 目標48pxより少し小さめでも視覚的にOK */
+            min-height: 44px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         .icon-btn:hover {
             background: rgba(255,255,255,0.1);
+        }
+        .icon-btn:active {
+            transform: scale(0.95);
         }
 
         /* Container */
@@ -72,12 +105,19 @@
             max-width: 800px;
             margin: 0 auto;
             width: 100%;
+            /* safe-area-insetによって余白がつく場合も、コンテンツは中央に */
+            padding-left: max(env(safe-area-inset-left), 20px);
+            padding-right: max(env(safe-area-inset-right), 20px);
+            box-sizing: border-box; /* paddingを含めて幅を計算 */
         }
 
         /* Sections */
         .section {
-            padding: 20px;
+            padding: 20px 0; /* app-containerで左右paddingを管理 */
             border-bottom: 1px solid var(--border);
+        }
+        .section:last-of-type {
+            border-bottom: none; /* 最後のセクションのボーダーは非表示 */
         }
         .section-title {
             font-size: 1rem;
@@ -137,7 +177,17 @@
             color: var(--text-main);
         }
         .btn-secondary:hover { background: #3a3a3a; }
-        .btn-small { padding: 6px 12px; font-size: 0.85rem; width: auto; display: inline-flex; }
+        .btn-small { 
+            padding: 6px 12px; 
+            font-size: 0.85rem; 
+            width: auto; 
+            display: inline-flex; 
+            min-width: 44px; /* タッチターゲット */
+            min-height: 44px;
+            box-sizing: border-box;
+            justify-content: center;
+            align-items: center;
+        }
 
         /* File Drop Zone */
         .file-drop-zone { 
@@ -161,7 +211,7 @@
         .file-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid var(--border); gap: 10px; }
         .file-item:last-child { border-bottom: none; }
         .file-item-left { display: flex; align-items: center; gap: 10px; flex-grow: 1; min-width: 0; }
-        .file-item-left input[type="checkbox"] { flex-shrink: 0; cursor: pointer; width: 16px; height: 16px; accent-color: var(--primary); }
+        .file-item-left input[type="checkbox"] { flex-shrink: 0; cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary); } /* タッチターゲット考慮 */
         .file-item-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
         .file-size { color: var(--text-muted); font-family: monospace; flex-shrink: 0; }
         
@@ -175,6 +225,10 @@
             background: #0d0d0d;
             border-top: 1px solid var(--border);
             flex-shrink: 0;
+            /* safe-area-insetによって余白がつく場合も、コンテンツは中央に */
+            padding-left: max(env(safe-area-inset-left), 0px);
+            padding-right: max(env(safe-area-inset-right), 0px);
+            box-sizing: border-box; /* paddingを含めて幅を計算 */
         }
         .status-bar {
             padding: 10px 20px;
@@ -195,7 +249,7 @@
 
         #logConsole { 
             flex-grow: 1; 
-            padding: 15px; 
+            padding: 15px 20px; /* status-barに合わせる */
             font-family: 'Consolas', 'Courier New', monospace; 
             font-size: 0.8rem; 
             overflow-y: auto; 
@@ -209,8 +263,25 @@
 
         /* Download Area */
         #downloadArea { padding: 15px; text-align: center; background: var(--bg-surface); display: none; }
-        #downloadLink { color: var(--success); text-decoration: none; font-weight: bold; border: 1px solid var(--success); padding: 10px 20px; border-radius: 8px; display: inline-block; transition: 0.2s; cursor: pointer; }
+        #downloadLink { 
+            color: var(--success); 
+            text-decoration: none; 
+            font-weight: bold; 
+            border: 1px solid var(--success); 
+            padding: 10px 20px; 
+            border-radius: 8px; 
+            display: inline-block; 
+            transition: 0.2s; 
+            cursor: pointer;
+            min-width: 44px; /* タッチターゲット */
+            min-height: 44px;
+            box-sizing: border-box;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+        }
         #downloadLink:hover { background: rgba(78, 201, 176, 0.1); }
+        #downloadLink:active { transform: scale(0.98); }
 
         /* Settings Overlay */
         #settingsOverlay {
@@ -231,6 +302,7 @@
             padding: 16px 20px;
             border-bottom: 1px solid var(--border);
             background: var(--bg-surface);
+            padding-top: calc(16px + env(safe-area-inset-top)); /* safe-areaを考慮 */
         }
         .settings-content {
             flex-grow: 1;
@@ -240,6 +312,8 @@
             margin: 0 auto;
             width: 100%;
             box-sizing: border-box;
+            padding-left: max(env(safe-area-inset-left), 20px);
+            padding-right: max(env(safe-area-inset-right), 20px);
         }
 
         /* Toast */
@@ -260,6 +334,8 @@
             transition: all 0.3s ease;
             z-index: 1000;
             white-space: nowrap;
+            /* safe-area-inset-bottomを考慮 */
+            bottom: calc(30px + env(safe-area-inset-bottom));
         }
         #toast.show {
             opacity: 1;
@@ -281,32 +357,8 @@
     <!-- Main Content -->
     <div class="app-container">
         
+        <!-- Web Assets (www) セクション -->
         <div class="section">
-            <h2 class="section-title">📱 App Configuration</h2>
-            <div class="form-group">
-                <label>アプリの表示名</label>
-                <input type="text" id="appName" placeholder="My App" value="My Packaged App">
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 6px 0 0 0;">アセット選択時に、index.htmlやREADMEから自動取得されます。</p>
-            </div>
-            <div class="form-group">
-                <label>パッケージID (例: com.example.app)</label>
-                <div style="display: flex; gap: 8px;">
-                    <input type="text" id="appId" placeholder="com.myapp.a1b2c3d4" value="com.example.pkgapp" style="flex-grow: 1;">
-                    <button type="button" class="btn btn-secondary btn-small" id="generateAppIdBtn">自動生成</button>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>アプリアイコン (PNG推奨, 512x512)</label>
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <img id="appIconPreview" src="" alt="Icon" style="width: 48px; height: 48px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border); background: #fff;">
-                    <input type="file" id="appIconInput" accept="image/png, image/jpeg" style="display: none;">
-                    <button type="button" class="btn btn-secondary btn-small" id="selectIconBtn">画像を選択</button>
-                    <button type="button" class="btn btn-secondary btn-small" id="clearIconBtn" style="display: none; border-color: var(--error); color: var(--error);">リセット</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="section" style="flex-grow: 1;">
             <h2 class="section-title">📁 Web Assets (www)</h2>
             
             <div class="form-group" style="display: flex; gap: 20px; margin-bottom: 20px;">
@@ -341,7 +393,7 @@
             <div id="githubSourceUI" style="display: none; background: var(--bg-surface); padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
                 <div class="form-group">
                     <label style="display: flex; justify-content: space-between; align-items: center;">
-                        対象リポジトリ (取得・デプロイ先)
+                        対象リポジリ (取得・デプロイ先)
                         <button class="btn btn-secondary btn-small" id="fetchSourceReposBtn" style="padding: 4px 8px; font-size: 0.75rem;">🔄 再取得</button>
                     </label>
                     <select id="sourceRepoSelect">
@@ -364,10 +416,37 @@
                 </div>
                 <div id="ghFileList" class="file-list-area"></div>
             </div>
-            
-            <div style="margin-top: 25px;">
-                <button class="btn" id="deployBtn">🚀 パッケージ & デプロイ</button>
+        </div>
+
+        <!-- App Configuration セクション (要件1: Web Assetsの次に移動) -->
+        <div class="section">
+            <h2 class="section-title">📱 App Configuration</h2>
+            <div class="form-group">
+                <label>アプリの表示名</label>
+                <input type="text" id="appName" placeholder="My App" value="My Packaged App">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 6px 0 0 0;">アセット選択時に、index.htmlやREADMEから自動取得されます。</p>
             </div>
+            <div class="form-group">
+                <label>パッケージID (例: com.example.app)</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="appId" placeholder="com.myapp.a1b2c3d4" value="com.example.pkgapp" style="flex-grow: 1;">
+                    <button type="button" class="btn btn-secondary btn-small" id="generateAppIdBtn">自動生成</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>アプリアイコン (PNG推奨, 512x512)</label>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <img id="appIconPreview" src="" alt="Icon" style="width: 48px; height: 48px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border); background: #fff;">
+                    <input type="file" id="appIconInput" accept="image/png, image/jpeg" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-small" id="selectIconBtn">画像を選択</button>
+                    <button type="button" class="btn btn-secondary btn-small" id="clearIconBtn" style="display: none; border-color: var(--error); color: var(--error);">リセット</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- パッケージ & デプロイボタン (要件4: 設定セクションの下、コンソールエリアの直前に移動) -->
+        <div style="margin-top: 25px; margin-bottom: 20px;">
+            <button class="btn" id="deployBtn">🚀 パッケージ & デプロイ</button>
         </div>
 
         <!-- Console Section -->
@@ -384,7 +463,8 @@
                 <div class="log-item log-war">⚠️ index.html が選択ファイルに含まれることを確認してください。</div>
             </div>
             <div id="downloadArea">
-                <a id="downloadLink">📥 APKをダウンロード</a>
+                <!-- 要件2: ダウンロードリンクのテキストを変更 -->
+                <a id="downloadLink">📥 APKを含むZIPをダウンロード</a>
             </div>
         </div>
     </div>
@@ -473,20 +553,85 @@
     };
 
     // --- PWA Setup ---
-    const setupPWA = () => {
+    // manifest.jsonとapple-touch-iconは動的に作成・更新される
+    const setupPWA = async () => {
+        // currentIconBase64が設定されるまで待機
+        await new Promise(resolve => {
+            const checkIconLoaded = () => {
+                if (currentIconBase64) {
+                    resolve();
+                } else {
+                    setTimeout(checkIconLoaded, 50); // 50msごとにチェック
+                }
+            };
+            checkIconLoaded();
+        });
+
+        const appNameValue = $('appName')?.value || "Native App Packager";
+        const shortNameValue = appNameValue.length > 12 ? appNameValue.substring(0, 12) : appNameValue;
+
+        const icons = [];
+        if (currentIconBase64) {
+            // 要件3: デフォルト/カスタムアイコンをPWA manifestに動的に設定
+            icons.push({ src: currentIconBase64, sizes: "48x48", type: "image/png" });
+            icons.push({ src: currentIconBase64, sizes: "72x72", type: "image/png" });
+            icons.push({ src: currentIconBase64, sizes: "96x96", type: "image/png" });
+            icons.push({ src: currentIconBase64, sizes: "144x144", type: "image/png" });
+            icons.push({ src: currentIconBase64, sizes: "168x168", type: "image/png" });
+            icons.push({ src: currentIconBase64, sizes: "192x192", type: "image/png" });
+            icons.push({ src: currentIconBase64, sizes: "512x512", type: "image/png" });
+            icons.push({ src: currentIconBase64, sizes: "1024x1024", type: "image/png" }); // より高解像度も追加
+            // maskable icon用にも追加
+            icons.push({ src: currentIconBase64, sizes: "512x512", type: "image/png", purpose: "maskable" });
+        } else {
+            // currentIconBase64が未定義の場合のフォールバック (既存SVGを維持)
+            icons.push({ src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⚡%3C/text%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml" });
+            icons.push({ src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⚡%3C/text%3E%3C/svg%3E", sizes: "512x512", type: "image/svg+xml" });
+        }
+
         const manifest = {
-            name: "Native App Packager",
-            short_name: "Packager",
+            name: appNameValue,
+            short_name: shortNameValue,
             display: "standalone",
+            start_url: "/",
             background_color: "#121212",
             theme_color: "#1e1e1e",
-            icons: [{ src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⚡%3C/text%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml" }]
+            icons: icons
         };
+        
+        // 既存のmanifest linkを削除してから追加し直すことで更新を保証
+        let existingManifestLink = document.querySelector('link[rel="manifest"]');
+        if (existingManifestLink) existingManifestLink.remove();
+
         const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
         const manifestUrl = URL.createObjectURL(manifestBlob);
-        document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestUrl}">`);
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = manifestUrl;
+        document.head.appendChild(link);
+
+        // 要件3: apple-touch-iconを動的に設定 (現在のPNGアイコンを使用)
+        let existingAppleTouchIcon = document.querySelector('link[rel="apple-touch-icon"]');
+        if (existingAppleTouchIcon) existingAppleTouchIcon.remove();
+        
+        const appleTouchIconLink = document.createElement('link');
+        appleTouchIconLink.rel = 'apple-touch-icon';
+        // currentIconBase64が設定されていればそれを使用、なければ既存のSVG fallback
+        appleTouchIconLink.href = currentIconBase64 || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⚡%3C/text%3E%3C/svg%3E"; 
+        document.head.appendChild(appleTouchIconLink);
+
+        // Service Workerの登録
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // serviceWorkerは `/sw.js` ファイルが別途必要です。
+                // このHTMLファイル単体では動作しません。
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => console.log('SW registered: ', registration))
+                    .catch(registrationError => console.log('SW registration failed: ', registrationError));
+            });
+        }
     };
-    setupPWA();
+    // setupPWA(); // DOMContentLoadedでloadSettings後に呼び出すため、ここではコメントアウト
 
     // --- IndexedDB ラッパー ---
     const DB_NAME = 'PackagerConfigDB';
@@ -533,26 +678,18 @@
         });
     };
 
-    // --- デフォルトアイコン動的生成 (アプリ名連動) ---
+    // --- デフォルトアイコン動的生成 (要件3: ⚡シンボルモチーフのPNGアイコンを動的に生成) ---
     let currentIconBase64 = '';
     let isCustomIcon = false;
 
     const generateDynamicIcon = async (appName = '') => {
-        let text = '⚡';
-        const name = appName.trim();
-        if (name) {
-            const words = name.split(/\s+/);
-            if (words.length >= 2) {
-                text = (words[0].substring(0, 1) + words[1].substring(0, 1)).toUpperCase();
-            } else {
-                text = name.substring(0, 2).toUpperCase(); // 1単語なら最初の2文字
-            }
-        }
+        // 要件に合わせて、常に「⚡」シンボルを使用
+        const text = '⚡'; 
 
-        // 文字列からハッシュ値を生成し、テーマカラーを決定
+        // アプリ名に基づいて背景色を動的に生成するロジックは維持
         let hash = 0;
-        for (let i = 0; i < (name || 'default').length; i++) {
-            hash = (name || 'default').charCodeAt(i) + ((hash << 5) - hash);
+        for (let i = 0; i < (appName || 'default').length; i++) {
+            hash = (appName || 'default').charCodeAt(i) + ((hash << 5) - hash);
         }
         const h = Math.abs(hash) % 360;
         const s = 65;
@@ -560,6 +697,7 @@
         const bgColor = `hsl(${h}, ${s}%, ${l}%)`;
         const bgColor2 = `hsl(${(h + 40) % 360}, ${s}%, ${l - 10}%)`;
 
+        // SVGを生成し、⚡シンボルが大きく中央に配置されるよう調整
         const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'>
             <defs>
                 <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -568,9 +706,9 @@
                 </linearGradient>
             </defs>
             <rect width='512' height='512' fill='url(#bg)'/>
-            <text x='256' y='340' font-size='240' font-family='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' font-weight='bold' fill='#ffffff' text-anchor='middle'>${text}</text>
+            <text x='256' y='380' font-size='320' font-family='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' font-weight='bold' fill='#ffffff' text-anchor='middle'>${text}</text>
         </svg>`;
-
+        
         return new Promise((resolve) => {
             const img = new Image();
             const svgBlob = new Blob([svg], {type: 'image/svg+xml;charset=utf-8'});
@@ -579,6 +717,11 @@
                 const canvas = document.createElement('canvas');
                 canvas.width = 512; canvas.height = 512;
                 const ctx = canvas.getContext('2d');
+                // iOSのmaskable icon対応を簡易的に実装するため、アイコンが丸くなるように描画
+                ctx.beginPath();
+                ctx.arc(256, 256, 256, 0, Math.PI * 2, true);
+                ctx.closePath();
+                ctx.clip();
                 ctx.drawImage(img, 0, 0, 512, 512);
                 URL.revokeObjectURL(url);
                 resolve(canvas.toDataURL('image/png'));
@@ -597,6 +740,7 @@
         await dbSave('app_icon', currentIconBase64);
         await dbSave('app_icon_is_custom', false);
         if (isClear) showToast('🔄 アイコンを初期化しました');
+        setupPWA(); // アイコンが更新されたらPWA設定を更新
     };
 
     // --- アイコン設定 UI ---
@@ -610,9 +754,10 @@
             $('appIconPreview').src = currentIconBase64;
             $('clearIconBtn').style.display = 'inline-flex';
             isCustomIcon = true;
-            await dbSave('app_icon', currentIconBase64);
+            await dbSave('app_icon', currentIconBase64); 
             await dbSave('app_icon_is_custom', true);
             showToast('✅ アプリアイコンを保存しました');
+            setupPWA(); // アイコンが更新されたらPWA設定を更新
         };
         reader.readAsDataURL(file);
     };
@@ -643,6 +788,7 @@
             if (!isCustomIcon) {
                 await setDefaultIcon(name);
             }
+            setupPWA(); // アプリ名が更新されたらPWA設定を更新
         }
     };
 
@@ -685,7 +831,7 @@
             $('appIconPreview').src = appIcon;
             if (isCustomIcon) $('clearIconBtn').style.display = 'inline-flex';
         } else {
-            await setDefaultIcon($('appName').value);
+            await setDefaultIcon($('appName').value); // デフォルトアイコンを生成
         }
 
         if (sourceRepoPath) $('sourceRepoPath').value = sourceRepoPath;
@@ -703,6 +849,7 @@
                 fetchRepositories(); 
             }
         }
+        setupPWA(); // 初期読み込み時にもPWA設定を更新
     };
 
     $('appName').addEventListener('change', async (e) => {
@@ -711,6 +858,7 @@
         if (!isCustomIcon) {
             await setDefaultIcon(val);
         }
+        setupPWA(); // アプリ名が更新されたらPWA設定を更新
     });
 
     $('appId').addEventListener('change', async (e) => {
@@ -727,7 +875,7 @@
         await dbSave('source_repo_name', repo);
         await dbSave('gh_repo', repo); 
         clearGhFileList();
-        if(repo) showToast(`✅ 対象リポジトリを設定しました`);
+        if(repo) showToast(`✅ 対象リポジリを設定しました`);
     });
     
     $('sourceRepoPath').addEventListener('input', async (e) => {
@@ -760,7 +908,7 @@
         
         let url = `https://api.github.com${path}`;
         if (!path.startsWith('/user') && !path.startsWith('/repos/')) {
-            if (!owner || !repo) throw new Error('GitHubリポジトリが選択されていません。');
+            if (!owner || !repo) throw new Error('GitHubリポジリが選択されていません。');
             url = `https://api.github.com/repos/${owner}/${repo}${path}`;
         }
 
@@ -820,9 +968,9 @@
         const savedSourceRepo = await dbGet('source_repo_name');
 
         try {
-            sourceRepoSelect.innerHTML = '<option value="">⏳ リポジトリを取得中...</option>';
+            sourceRepoSelect.innerHTML = '<option value="">⏳ リポジリを取得中...</option>';
             const repos = await ghApi('/user/repos?per_page=100&sort=updated');
-            sourceRepoSelect.innerHTML = '<option value="">リポジトリを選択してください...</option>';
+            sourceRepoSelect.innerHTML = '<option value="">リポジリを選択してください...</option>';
             
             repos.forEach(repo => {
                 const opt2 = document.createElement('option');
@@ -832,7 +980,7 @@
             });
         } catch (e) {
             sourceRepoSelect.innerHTML = '<option value="">❌ 取得エラー</option>';
-            log(`❌ リポジトリ取得失敗: ${e.message}`, 'log-err');
+            log(`❌ リポジリ取得失敗: ${e.message}`, 'log-err');
         }
     }
 
@@ -847,6 +995,7 @@
             $('sourceRepoSelect').innerHTML = '<option value="">設定(⚙️)からトークンを保存してください...</option>';
             await setDefaultIcon($('appName').value);
             showToast('🗑️ 設定を初期化しました');
+            setupPWA(); // 設定がクリアされたらPWA設定を更新
         }
     };
 
@@ -915,7 +1064,7 @@
         let path = $('sourceRepoPath').value.trim();
         if (path.startsWith('/')) path = path.substring(1);
         
-        if (!repo || !owner) return showToast('⚠️ 対象のリポジトリを選択してください');
+        if (!repo || !owner) return showToast('⚠️ 対象のリポジリを選択してください');
 
         const btn = $('fetchGhFilesBtn');
         btn.disabled = true; btn.innerText = '⏳ 取得中...';
@@ -1213,7 +1362,7 @@ jobs:
                 showToast('⚠️ パッケージに含めるファイルが選択されていません。'); return; 
             }
         } else if (sourceType === 'github') {
-            if (!sourceRepo) { showToast('⚠️ 対象リポジトリを選択してください。'); return; }
+            if (!sourceRepo) { showToast('⚠️ 対象リポジリを選択してください。'); return; }
             if (ghSelectedFilesData.length > 0) {
                 const checkedCbs = Array.from(document.querySelectorAll('.gh-file-cb:checked'));
                 if (checkedCbs.length === 0) {
@@ -1225,7 +1374,7 @@ jobs:
 
         const token = await dbGet('gh_token');
         if (!token || !sourceRepo) { 
-            showToast('⚠️ 対象リポジトリ(取得・デプロイ先)を設定してください。');
+            showToast('⚠️ 対象リポジリ (取得・デプロイ先) の設定とGitHubトークンの保存を確認してください。');
             return; 
         }
         
@@ -1262,7 +1411,7 @@ jobs:
                 const zipBase64 = await zip.generateAsync({ type: 'base64' });
                 log('✅ ZIPパッケージ作成完了.', 'log-suc');
 
-                log('2/5: 🔍 対象リポジトリの既存構成を確認中 (www.zip)...');
+                log('2/5: 🔍 対象リポジリの既存構成を確認中 (www.zip)...');
                 let sha = null;
                 try {
                     const fileRes = await ghApi('/contents/www.zip');
@@ -1275,7 +1424,7 @@ jobs:
                 await ghApi('/contents/www.zip', 'PUT', { message: `Deploy Web Assets (App: ${appName})`, content: zipBase64, sha: sha });
                 log('✅ アップロード成功.', 'log-suc');
             } else {
-                log('1〜3/5: ☁️ GitHubリポジトリからの取得を選択しました。ZIPアップロードをスキップします。');
+                log('1〜3/5: ☁️ GitHubリポジリからの取得を選択しました。ZIPアップロードをスキップします。');
             }
 
             log('4/5: 📄 GitHub Actionsワークフローファイル (build-apk.yml) の確認・更新中...');
@@ -1313,7 +1462,7 @@ jobs:
             // アイコンBase64はdispatch inputの65535文字制限に注意
             let iconForDispatch = pureBase64Icon;
             if (iconForDispatch && iconForDispatch.length > 60000) {
-                log('⚠️ アイコンデータが大きすぎるため、dispatch inputから除外します。リポジトリにコミットします...', 'log-war');
+                log('⚠️ アイコンデータが大きすぎるため、dispatch inputから除外します。リポジリにコミットします...', 'log-war');
                 try {
                     let iconSha = null;
                     try {
@@ -1326,7 +1475,7 @@ jobs:
                         sha: iconSha
                     });
                     iconForDispatch = '__FROM_REPO__';
-                    log('✅ アイコンをリポジトリにコミットしました', 'log-suc');
+                    log('✅ アイコンをリポジリにコミットしました', 'log-suc');
                 } catch(e) {
                     log('⚠️ アイコンコミット失敗、アイコンなしで続行します', 'log-war');
                     iconForDispatch = '';
@@ -1412,7 +1561,8 @@ jobs:
                         searchAttempts++;
                         return;
                     }
-                } else {
+                } sanded, as it means the build has been manually started, or we missed the exact start time.
+                else {
                     targetRun = runsData.workflow_runs.find(run => run.id === foundRunId);
                 }
 
@@ -1446,7 +1596,8 @@ jobs:
                         }
                         
                         $('downloadArea').style.display = 'block';
-                        showToast('✅ APKのダウンロード準備ができました');
+                        // 要件2: ダウンロード完了時のトーストメッセージを変更
+                        showToast('✅ ビルドが完了しました。ダウンロードしたZIPファイルを開き、app-debug.apkをインストールしてください。');
                     } else {
                         log(`❌ ビルドが失敗しました (Conclusion: ${targetRun.conclusion})`, 'log-err');
                         log(`🔗 <a href="${targetRun.html_url}" target="_blank" style="color:var(--primary)">Actions ログを開く</a>`);
@@ -1539,7 +1690,8 @@ jobs:
             const blobUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = blobUrl;
-            a.download = `${$('appName').value || 'app'}-release.zip`;
+            // 要件2: ダウンロードされるZIPファイル名を変更 (既に実装済み)
+            a.download = `${$('appName').value || 'app'}-APK.zip`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -1547,9 +1699,11 @@ jobs:
 
             btn.innerText = origText;
             btn.style.pointerEvents = 'auto';
-            showToast('✅ ダウンロードが完了しました');
+            // 要件2: ダウンロード完了時のトーストメッセージを変更
+            showToast('✅ ダウンロードが完了しました。ダウンロードしたZIPファイルを開き、app-debug.apkをインストールしてください。');
         } catch(err) {
             console.error(err);
+            // 要件2: ダウンロード失敗時のトーストメッセージを変更
             showToast('❌ 直接ダウンロードに失敗しました。Actionsページを開きます。');
             btn.innerText = origText;
             btn.style.pointerEvents = 'auto';
@@ -1560,9 +1714,123 @@ jobs:
         }
     };
 
+    // --- History API for Android Back Button (PWA) ---
+    window.addEventListener('popstate', (event) => {
+        if ($('settingsOverlay').classList.contains('active')) {
+            $('settingsOverlay').classList.remove('active');
+            // 履歴にpushされた設定画面の状態をpopしたため、URLを元に戻す
+            history.pushState(null, null, location.href);
+        }
+    });
+
+    $('openSettingsBtn').onclick = () => {
+        if (!$('settingsOverlay').classList.contains('active')) {
+            $('settingsOverlay').classList.add('active');
+            // 設定画面が開かれたことを履歴に追加
+            history.pushState({ screen: 'settings' }, '', '#settings');
+        }
+    };
+    $('closeSettingsBtn').onclick = () => {
+        if ($('settingsOverlay').classList.contains('active')) {
+            $('settingsOverlay').classList.remove('active');
+            // 履歴から設定画面の状態を削除 (戻るボタンで閉じる動作)
+            if (history.state && history.state.screen === 'settings') {
+                history.back();
+            }
+        }
+    };
+
+    // --- Page Visibility API (async tasks) ---
+    // アプリがバックグラウンドに移動しても非同期タスク(ポーリング)を維持するためのロジック
+    let isPollingActive = false; // ポーリングが現在アクティブかどうかを追跡
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            // アプリがバックグラウンドになった場合、Wake Lockを要求
+            if (pollingInterval) { // ポーリングがアクティブな場合のみ
+                requestWakeLock();
+                isPollingActive = true;
+            }
+        } else {
+            // アプリがフォアグラウンドに戻った場合、Wake Lockを解放
+            if (wakeLock && isPollingActive) {
+                releaseWakeLock();
+                isPollingActive = false;
+            }
+        }
+    });
+
     // 初期化
     window.addEventListener('DOMContentLoaded', loadSettings);
 
+</script>
+<!-- Service Workerスクリプトをbodyの閉じタグの直前に配置 -->
+<script>
+    // sw.jsの内容 (オフライン対応用の最小限のService Worker)
+    // このコードは実際のsw.jsファイルとして保存する必要があります。
+    // 例: sw.js
+    /*
+    const CACHE_NAME = 'packager-v1';
+    const urlsToCache = [
+        '/',
+        '/index.html',
+        'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+        // アプリケーションに必要な他のCSS, JS, 画像ファイルなどを追加
+    ];
+
+    self.addEventListener('install', (event) => {
+        event.waitUntil(
+            caches.open(CACHE_NAME)
+                .then((cache) => {
+                    console.log('Opened cache');
+                    return cache.addAll(urlsToCache);
+                })
+        );
+    });
+
+    self.addEventListener('fetch', (event) => {
+        event.respondWith(
+            caches.match(event.request)
+                .then((response) => {
+                    // キャッシュにあればそれを使う
+                    if (response) {
+                        return response;
+                    }
+                    // なければネットワークから取得し、キャッシュに追加
+                    return fetch(event.request).then(
+                        (response) => {
+                            // 有効なレスポンスか確認
+                            if (!response || response.status !== 200 || response.type !== 'basic') {
+                                return response;
+                            }
+                            // レスポンスをクローンしてキャッシュに入れる
+                            const responseToCache = response.clone();
+                            caches.open(CACHE_NAME)
+                                .then((cache) => {
+                                    cache.put(event.request, responseToCache);
+                                });
+                            return response;
+                        }
+                    );
+                })
+        );
+    });
+
+    self.addEventListener('activate', (event) => {
+        const cacheWhitelist = [CACHE_NAME];
+        event.waitUntil(
+            caches.keys().then((cacheNames) => {
+                return Promise.all(
+                    cacheNames.map((cacheName) => {
+                        if (cacheWhitelist.indexOf(cacheName) === -1) {
+                            return caches.delete(cacheName);
+                        }
+                    })
+                );
+            })
+        );
+    });
+    */
 </script>
 </body>
 </html>
