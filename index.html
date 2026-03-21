@@ -1029,7 +1029,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
-        with: { node-version: 24 }
+        with: { node-version: 22 }
 
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
@@ -1041,30 +1041,46 @@ jobs:
             "version": "1.0.0",
             "description": "Auto-generated project",
             "dependencies": {
-              "@capacitor/core": "^5.0.0",
-              "@capacitor/android": "^5.0.0"
+              "@capacitor/core": "5.7.8",
+              "@capacitor/android": "5.7.8"
             },
             "devDependencies": {
-              "@capacitor/cli": "^5.0.0"
+              "@capacitor/cli": "5.7.8"
             }
           }' > package.json
 
       - name: Install Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Extract Web Assets (Local)
         if: github.event.inputs.source_type == 'local'
         run: |
-          rm -rf www
+          rm -rf www www_temp
           mkdir www
-          unzip -o www.zip -d www
-          ls -l www
+          unzip -o www.zip -d www_temp
+          # ネストされたフォルダ構造を自動フラット化
+          if [ -f "www_temp/index.html" ]; then
+            mv www_temp/* www/ 2>/dev/null || true
+          else
+            # サブフォルダ内にindex.htmlがある場合
+            FOUND=\$(find www_temp -name "index.html" -type f | head -1)
+            if [ -n "$FOUND" ]; then
+              TARGET_DIR=\$(dirname "$FOUND")
+              cp -R "$TARGET_DIR/." www/
+            else
+              cp -R www_temp/* www/ 2>/dev/null || true
+            fi
+          fi
+          rm -rf www_temp
+          echo "=== www/ contents ==="
+          find www -type f | head -20
 
       - name: Checkout Source Repo (GitHub)
         if: github.event.inputs.source_type == 'github'
         uses: actions/checkout@v4
         with:
           path: source_repo_temp
+          fetch-depth: 1
 
       - name: Copy Web Assets (GitHub)
         if: github.event.inputs.source_type == 'github'
@@ -1076,27 +1092,54 @@ jobs:
           SOURCE_PATH="\${SOURCE_PATH%/}"
           SELECTED="\${{ github.event.inputs.selected_files }}"
           
+          echo "DEBUG: SOURCE_PATH=[$SOURCE_PATH]"
+          echo "DEBUG: SELECTED=[$SELECTED]"
+          
           if [ -n "$SELECTED" ]; then
             IFS=',' read -ra ADDR <<< "$SELECTED"
             for i in "\${ADDR[@]}"; do
+              i="\$(echo "$i" | xargs)"
               if [ -z "$SOURCE_PATH" ]; then
                 DEST="$i"
               else
                 DEST="\${i#$SOURCE_PATH/}"
               fi
-              mkdir -p "www/$(dirname "$DEST")" || true
-              cp -R "source_repo_temp/$i" "www/$DEST" || true
+              echo "Copying: source_repo_temp/$i -> www/$DEST"
+              mkdir -p "www/\$(dirname "$DEST")" || true
+              if [ -d "source_repo_temp/$i" ]; then
+                cp -R "source_repo_temp/$i/." "www/$DEST/" 2>/dev/null || cp -R "source_repo_temp/$i" "www/$DEST" || true
+              else
+                cp "source_repo_temp/$i" "www/$DEST" || true
+              fi
             done
           else
             if [ -z "$SOURCE_PATH" ]; then
-              cp -R source_repo_temp/* www/ || true
-              cp -R source_repo_temp/.[!.]* www/ || true
+              shopt -s dotglob 2>/dev/null || true
+              for item in source_repo_temp/*; do
+                bname="\$(basename "$item")"
+                [ "$bname" = ".git" ] && continue
+                [ "$bname" = ".github" ] && continue
+                [ "$bname" = "node_modules" ] && continue
+                cp -R "$item" "www/" || true
+              done
             else
-              cp -R source_repo_temp/$SOURCE_PATH/* www/ || true
-              cp -R source_repo_temp/$SOURCE_PATH/.[!.]* www/ || true
+              cp -R "source_repo_temp/$SOURCE_PATH/." www/ || true
             fi
           fi
-          ls -l www
+          
+          echo "=== www/ contents ==="
+          find www -type f | head -30
+          echo "=== Total files: \$(find www -type f | wc -l) ==="
+
+      - name: Verify Web Assets
+        run: |
+          if [ ! -f "www/index.html" ]; then
+            echo "::error::index.html not found in www/ directory!"
+            echo "Contents of www/:"
+            ls -laR www/ | head -50
+            exit 1
+          fi
+          echo "✅ index.html found in www/"
 
       - name: Configure Capacitor
         run: |
@@ -1108,6 +1151,8 @@ jobs:
 
       - name: Android Platform Setup
         run: |
+          echo "ANDROID_HOME=\${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> \$GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=\${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> \$GITHUB_ENV
           npx cap add android || true
           npx cap sync android
 
@@ -1137,7 +1182,9 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "JAVA_HOME=$JAVA_HOME"
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -1198,7 +1245,16 @@ jobs:
             if (sourceType === 'local') {
                 log(`1/5: 📦 選択された ${filesToZip.length} ファイルからZIPパッケージを作成中...`);
                 const zip = new JSZip();
-                filesToZip.forEach(file => zip.file(file.webkitRelativePath || file.name, file));
+                // webkitRelativePath のトップフォルダを除去してフラットに格納
+                filesToZip.forEach(file => {
+                    let path = file.webkitRelativePath || file.name;
+                    const parts = path.split('/');
+                    // フォルダ選択時は最初のセグメント(フォルダ名)を除去
+                    if (file.webkitRelativePath && parts.length > 1) {
+                        path = parts.slice(1).join('/');
+                    }
+                    zip.file(path, file);
+                });
                 const zipBase64 = await zip.generateAsync({ type: 'base64' });
                 log('✅ ZIPパッケージ作成完了.', 'log-suc');
 
@@ -1235,8 +1291,8 @@ jobs:
             });
             log('✅ ワークフローファイルを更新・コミットしました。', 'log-suc');
             
-            log('⏳ GitHub Actionsが認識するのを待機中 (5秒)...');
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            log('⏳ GitHub Actionsが認識するのを待機中 (10秒)...');
+            await new Promise(resolve => setTimeout(resolve, 10000));
             
             log('5/5: ⚡ GitHub Actionsワークフローをトリガー中...');
             await ghApi('/actions/workflows/build-apk.yml/dispatches', 'POST', { 
