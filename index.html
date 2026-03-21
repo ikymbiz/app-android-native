@@ -1034,17 +1034,24 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
 
-      - name: Create package.json for Capacitor dependencies
+      - name: Clean existing config files
         run: |
-          printf '{"name":"web-to-native-app","version":"1.0.0","dependencies":{"@capacitor/core":"5.7.8","@capacitor/android":"5.7.8"},"devDependencies":{"@capacitor/cli":"5.7.8"}}' > package.json
-          echo "--- package.json ---"
-          cat package.json
-          echo ""
+          rm -f package.json package-lock.json capacitor.config.json capacitor.config.ts
+          rm -rf node_modules android ios
 
-      - name: Install Dependencies
+      - name: Configure Capacitor
         run: |
-          ls -la package.json
-          npm install --legacy-peer-deps
+          printf '{"appId":"%s","appName":"%s","webDir":"www"}' "\${{ github.event.inputs.app_id }}" "\${{ github.event.inputs.app_name }}" > capacitor.config.json
+          echo "--- capacitor.config.json ---"
+          cat capacitor.config.json
+
+      - name: Install Capacitor
+        run: |
+          npm init -y
+          npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest
+          echo "--- Installed packages ---"
+          npx cap --version
+          ls node_modules/@capacitor/
 
       - name: Extract Web Assets (Local)
         if: github.event.inputs.source_type == 'local'
@@ -1135,18 +1142,11 @@ jobs:
           fi
           echo "✅ index.html found in www/"
 
-      - name: Configure Capacitor
-        run: |
-          printf '{"appId":"%s","appName":"%s","webDir":"www"}' "\${{ github.event.inputs.app_id }}" "\${{ github.event.inputs.app_name }}" > capacitor.config.json
-          echo "--- capacitor.config.json ---"
-          cat capacitor.config.json
-
       - name: Android Platform Setup
         run: |
-          echo "ANDROID_HOME=\${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> \$GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=\${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> \$GITHUB_ENV
-          npx cap add android || true
+          npx cap add android
           npx cap sync android
+          echo "✅ Android platform added and synced"
 
       - name: Set App Icon and PWA Manifest
         if: github.event.inputs.app_icon_base64 != ''
