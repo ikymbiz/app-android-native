@@ -1,37 +1,354 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-    <title>APK変換コントロールパネル</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ Native App Cloud Packager & Deployer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root { --bg-main: #1e1e1e; --bg-side: #252526; --text: #cccccc; --primary: #007acc; --border: #444444; --success: #4ec9b0; --error: #f44747; --warning: #dcdcaa; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; background: var(--bg-main); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Sidebar (Settings & App Info) */
+        .sidebar { width: 300px; background: var(--bg-side); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        .sidebar h2 { font-size: 1.1rem; margin-top: 0; color: white; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .sidebar h2:not(:first-child) { margin-top: 25px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.8rem; color: #aaaaaa; margin-bottom: 4px; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 8px; background: #3c3c3c; border: 1px solid #555555; color: white; border-radius: 4px; box-sizing: border-box; font-size: 0.9rem; }
+        input[type="password"] { letter-spacing: 0.1em; }
+        .btn-small { background: #333; color: #ccc; border: 1px solid #555; padding: 4px 8px; font-size: 0.75rem; cursor: pointer; border-radius: 4px; margin-top: 4px; transition: 0.2s; }
+        .btn-small:hover { background: #444; color: white; }
+        
+        /* Main Area (File Selector & Console) */
+        .main-content { flex-grow: 1; display: flex; flex-direction: column; }
+        
+        /* File Selector Area */
+        .file-selector-container { flex-grow: 1; padding: 30px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 1px solid var(--border); background: #1a1a1a; }
+        .file-drop-zone { border: 2px dashed #555; border-radius: 12px; width: 100%; max-width: 500px; padding: 40px; text-align: center; cursor: pointer; transition: 0.3s; color: #888; }
+        .file-drop-zone:hover, .file-drop-zone.dragover { border-color: var(--primary); color: #ccc; background: rgba(0, 122, 204, 0.05); }
+        .file-drop-zone h3 { margin-top: 0; color: #ccc; }
+        .file-drop-zone p { font-size: 0.9rem; margin-bottom: 20px; }
+        #fileInput { display: none; }
+        .select-btn { background: var(--primary); color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        
+        #fileList { margin-top: 20px; width: 100%; max-width: 500px; max-height: 150px; overflow-y: auto; font-size: 0.85rem; color: #aaa; text-align: left; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; display: none;}
+        .file-item { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #333; }
+        .file-size { color: #666; font-family: monospace; }
+        
+        /* Console & Actions */
+        .console-container { height: 220px; background: var(--bg-side); padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; }
+        .action-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        button#deployBtn { padding: 10px 25px; background: var(--success); color: #1e1e1e; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 1rem; }
+        button#deployBtn:hover { background: #6ae0c7; transform: translateY(-1px); }
+        button#deployBtn:disabled { background: #555555; color: #888; cursor: not-allowed; transform: none; }
+        
+        /* Status & Logs */
+        #statusDisplay { font-size: 0.9rem; font-weight: bold; display: flex; align-items: center; gap: 5px; margin-left: auto;}
+        .status-icon { width: 10px; height: 10px; border-radius: 50%; background: #555; }
+        .status-idle .status-icon { background: #aaaaaa; }
+        .status-working .status-icon { background: var(--primary); animation: pulse 1.5s infinite; }
+        .status-success .status-icon { background: var(--success); }
+        .status-error .status-icon { background: var(--error); }
+        
+        #logConsole { flex-grow: 1; background: #1a1a1a; border: 1px solid #333; padding: 10px; font-family: 'Consolas', monospace; font-size: 0.8rem; overflow-y: auto; color: #aaaaaa; border-radius: 4px; }
+        .log-item { margin-bottom: 2px; line-height: 1.4; }
+        .log-err { color: var(--error); }
+        .log-suc { color: var(--success); }
+        .log-war { color: var(--warning); }
+        
+        /* Download Link */
+        #downloadArea { margin-top: 10px; display: none; text-align: center; }
+        #downloadLink { color: var(--success); text-decoration: none; font-weight: bold; border: 1px solid var(--success); padding: 6px 15px; border-radius: 4px; font-size: 0.9rem; transition: 0.2s; }
+        #downloadLink:hover { background: rgba(78, 201, 176, 0.1); }
+
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 122, 204, 0.7); } 70% { box-shadow: 0 0 0 8px rgba(0, 122, 204, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 122, 204, 0); } }
+    </style>
 </head>
-<body>
-    <h1>自分専用ビルドマシン</h1>
-    <button id="buildBtn">🚀 APKのビルドを開始する</button>
-    <p id="status"></p>
+<body class="status-idle">
 
-    <script>
-        const GITHUB_TOKEN = 'あなたのトークン'; // ※注意：公開リポジトリには書かないこと
-        const OWNER = 'あなたのユーザー名';
-        const REPO = 'リポジトリ名';
-        const WORKFLOW_ID = 'build-apk.yml'; // 前に作ったファイル名
+<div class="sidebar">
+    <h2>🛠️ GitHub Settings</h2>
+    <div class="form-group">
+        <label>GitHub PAT (Fine-grained)</label>
+        <input type="password" id="ghToken" placeholder="github_pat_...">
+        <div style="text-align: right;"><button class="btn-small" id="saveTokenBtn">保存</button></div>
+    </div>
+    <div class="form-group">
+        <label>GitHub ユーザー名</label>
+        <input type="text" id="ghOwner" placeholder="user_name">
+    </div>
+    <div class="form-group">
+        <label>リポジトリ名</label>
+        <input type="text" id="ghRepo" placeholder="repo_name">
+    </div>
 
-        document.getElementById('buildBtn').onclick = async () => {
-            document.getElementById('status').innerText = '送信中...';
-            
-            const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_ID}/dispatches`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${GITHUB_TOKEN}`,
-                    'Accept': 'application/vnd.github+json',
-                },
-                body: JSON.stringify({ ref: 'main' }) // どのブランチで動かすか
+    <h2>📱 App Config</h2>
+    <div class="form-group">
+        <label>アプリの表示名</label>
+        <input type="text" id="appName" value="My Packaged App">
+    </div>
+    <div class="form-group">
+        <label>パッケージID (com.user.app)</label>
+        <input type="text" id="appId" value="com.example.pkgapp">
+    </div>
+</div>
+
+<div class="main-content">
+    <div class="file-selector-container">
+        <div class="file-drop-zone" id="dropZone">
+            <h3>Web Assets (www/)</h3>
+            <p>ここにアプリのWebファイルをドラッグ＆ドロップ<br>または、フォルダ内の全ファイルをまとめて選択</p>
+            <input type="file" id="fileInput" multiple accept=".html,.css,.js,.png,.jpg,.jpeg,.svg,.gif,.json">
+            <button class="select-btn" type="button">ファイルを選択...</button>
+        </div>
+        <div id="fileList"></div>
+    </div>
+
+    <div class="console-container">
+        <div class="action-bar">
+            <button id="deployBtn">🚀 パッケージ & デプロイ</button>
+            <div id="statusDisplay"><span class="status-icon"></span> <span id="statusText">Idle</span></div>
+        </div>
+        <div id="logConsole">
+            <div class="log-item log-war">⚠️ 準備: index.html が含まれていることを確認してください。</div>
+            <div class="log-item">Ready.</div>
+        </div>
+        <div id="downloadArea">
+            <a href="#" id="downloadLink" target="_blank">📥 APKをダウンロード (Artifactsページへ)</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- ユーティリティ関数 ---
+    const $ = id => document.getElementById(id);
+    const log = (msg, type = '') => {
+        const console = $('logConsole');
+        const item = document.createElement('div');
+        item.className = `log-item ${type}`;
+        item.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`; // innerHTML to allow links
+        console.appendChild(item);
+        console.scrollTop = console.scrollHeight;
+    };
+    const setStatus = (cls, text) => {
+        document.body.className = cls;
+        $('statusText').innerText = text;
+    };
+    const formatBytes = (bytes) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    };
+    
+    // --- トークン管理 ---
+    const TOKEN_KEY = 'gh_pat_v2_packager';
+    $('ghToken').value = localStorage.getItem(TOKEN_KEY) || '';
+    $('saveTokenBtn').onclick = () => {
+        const token = $('ghToken').value;
+        if (token) {
+            localStorage.setItem(TOKEN_KEY, token);
+            log('Token stored securely in localStorage.', 'log-suc');
+        } else {
+            localStorage.removeItem(TOKEN_KEY);
+            log('Token removed from localStorage.');
+        }
+    };
+
+    // --- ファイル選択 & ドラッグ＆ドロップ ---
+    const fileInput = $('fileInput');
+    const dropZone = $('dropZone');
+    const fileListArea = $('fileList');
+    const selectBtn = document.querySelector('.select-btn');
+    let selectedFiles = [];
+
+    const handleFiles = (files) => {
+        selectedFiles = Array.from(files);
+        fileListArea.innerHTML = '';
+        if (selectedFiles.length > 0) {
+            fileListArea.style.display = 'block';
+            let hasIndexHtml = false;
+            selectedFiles.forEach(file => {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                item.innerHTML = `<span>${file.name}</span><span class="file-size">${formatBytes(file.size)}</span>`;
+                fileListArea.appendChild(item);
+                if (file.name === 'index.html') hasIndexHtml = true;
             });
+            log(`${selectedFiles.length} files selected.`);
+            if (!hasIndexHtml) log('⚠️ Warning: index.html is missing in selected files.', 'log-war');
+        } else {
+            fileListArea.style.display = 'none';
+        }
+    };
 
-            if (res.ok) {
-                document.getElementById('status').innerText = '✅ ビルドを開始しました！GitHubのActionsタブを見てね。';
-            } else {
-                document.getElementById('status').innerText = '❌ エラーが発生しました。';
-            }
+    selectBtn.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => handleFiles(e.target.files);
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+    dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+    dropZone.ondrop = (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); };
+
+    // --- GitHub API ヘルパー ---
+    async function ghApi(path, method = 'GET', body = null) {
+        const token = $('ghToken').value;
+        const owner = $('ghOwner').value;
+        const repo = $('ghRepo').value;
+        if (!token || !owner || !repo) throw new Error('GitHub Settings are incomplete.');
+
+        const url = `https://api.github.com/repos/${owner}/${repo}${path}`;
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github+json',
+            'Content-Type': 'application/json'
         };
-    </script>
+
+        const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : null });
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(`API Error: ${res.status} - ${errData.message}`);
+        }
+        return res.status === 204 ? null : res.json();
+    }
+
+    // --- メインロジック ---
+    $('deployBtn').onclick = async () => {
+        if (selectedFiles.length === 0) { alert('デプロイするファイルを選択してください。'); return; }
+        
+        const btn = $('deployBtn');
+        const appName = $('appName').value || 'My App';
+        const appId = $('appId').value || 'com.example.app';
+        const downloadArea = $('downloadArea');
+        downloadArea.style.display = 'none';
+
+        try {
+            btn.disabled = true;
+            setStatus('status-working', 'Processing...');
+            $('logConsole').innerHTML = ''; // Clear console
+            log(`Starting deployment for app: <b>${appName}</b>`);
+
+            // ① ファイルをZIP圧縮
+            log('1/4 Creating ZIP package from selected files...');
+            const zip = new JSZip();
+            selectedFiles.forEach(file => {
+                zip.file(file.name, file); // www/フォルダ直下に平坦に格納
+            });
+            // Base64エンコードされたZIPデータを生成
+            const zipBase64 = await zip.generateAsync({ type: 'base64' });
+            log('ZIP package created successfully.', 'log-suc');
+
+            // ② GET contents: www.zip の現在のSHAを取得（存在しなければErrorになるのでcatchする）
+            log('2/4 Fetching target file SHA (www.zip)...');
+            let sha = null;
+            try {
+                const fileRes = await ghApi('/contents/www.zip');
+                sha = fileRes.sha;
+                log(`Existing file SHA found: ${sha.substring(0, 7)}`);
+            } catch (e) {
+                log('No existing file found. Creating new one.');
+                // 404以外のエラーは再スロー
+                if (!e.message.includes('404')) throw e; 
+            }
+
+            // ③ PUT contents: www.zipファイルを更新/作成
+            log('3/4 Uploading www.zip to GitHub repository...');
+            const putBody = {
+                message: `Deploy Web Assets package (App: ${appName})`,
+                content: zipBase64, // JSZipが生成したBase64データをそのままセット
+                sha: sha // 存在する場合のみセット（新規作成時はnull）
+            };
+            await ghApi('/contents/www.zip', 'PUT', putBody);
+            log('File uploaded successfully.', 'log-suc');
+
+            // ④ POST actions: ワークフローをトリガー
+            log('4/4 Triggering GitHub Actions workflow...');
+            const dispatchBody = { ref: 'main', inputs: { app_name: appName, app_id: appId } };
+            await ghApi('/actions/workflows/build-apk.yml/dispatches', 'POST', dispatchBody);
+            log('Actions workflow dispatched.', 'log-suc');
+
+            // ⑤ ポーリング開始
+            startPolling(appName);
+
+        } catch (e) {
+            log(e.message, 'log-err');
+            setStatus('status-error', 'Error');
+            btn.disabled = false;
+        }
+    };
+
+    // --- ポーリング（ビルド状況監視） ---
+    let pollingInterval;
+    function startPolling(appName) {
+        log('Build process queued. Waiting for runner to start...');
+        const startTime = new Date();
+        const maxTimeMinutes = 20; // 最大監視時間（Capacitorビルドは時間がかかる場合があるため長めに設定）
+        let foundRunId = null;
+
+        if (pollingInterval) clearInterval(pollingInterval);
+
+        pollingInterval = setInterval(async () => {
+            try {
+                // タイムアウトチェック
+                if ((new Date() - startTime) > maxTimeMinutes * 60 * 1000) {
+                    throw new Error('Build monitoring timed out.');
+                }
+
+                // ワークフローのRun一覧を取得（event=workflow_dispatchでフィルタ）
+                const runsData = await ghApi('/actions/runs?event=workflow_dispatch&per_page=10');
+                if (runsData.workflow_runs.length === 0) return;
+
+                // 対象のRunを特定する
+                let targetRun = null;
+                if (!foundRunId) {
+                    // まだRun IDが特定できていない場合、開始時間以降で最初のdispatchランを探す
+                    targetRun = runsData.workflow_runs.find(run => new Date(run.created_at) >=startTime);
+                    if (targetRun) {
+                        foundRunId = targetRun.id;
+                        log(`Target build run found. <a href="${targetRun.html_url}" target="_blank">View on GitHub</a>`);
+                    }
+                } else {
+                    // 既にIDがわかっている場合は、そのRunの最新状態を取得
+                    targetRun = runsData.workflow_runs.find(run => run.id === foundRunId);
+                }
+
+                if (!targetRun) return; // まだ見つからない、または一覧から消えた
+
+                const status = targetRun.status;
+                const conclusion = targetRun.conclusion;
+
+                setStatus('status-working', `Building (${status})...`);
+                // ログの重複を避けるため、ステータスが変わった時だけログに出すなどの工夫も考えられるが、
+                // ここではシンプルに毎秒コンソールに状況を出す（流れるように）
+                // log(`Current status: ${status}${conclusion ? ` (${conclusion})` : ''}`);
+
+                if (status === 'completed') {
+                    clearInterval(pollingInterval);
+                    $('deployBtn').disabled = false;
+
+                    if (conclusion === 'success') {
+                        log('Android APK build succeeded!', 'log-suc');
+                        setStatus('status-success', 'Success');
+                        
+                        // Artifactsページへのリンクを生成
+                        const artifactsUrl = `${targetRun.html_url}#artifacts`;
+                        $('downloadLink').href = artifactsUrl;
+                        $('downloadArea').style.display = 'block';
+                        log('<b>✅ Download link is ready below.</b>', 'log-suc');
+                    } else {
+                        throw new Error(`Build failed with conclusion: ${conclusion}. Check GitHub Actions logs for details.`);
+                    }
+                }
+
+            } catch (e) {
+                clearInterval(pollingInterval);
+                log(e.message, 'log-err');
+                setStatus('status-error', 'Error');
+                $('deployBtn').disabled = false;
+            }
+        }, 10000); // 10秒間隔でポーリング
+    }
+</script>
+
 </body>
 </html>
