@@ -15,7 +15,8 @@
         .sidebar h2:not(:first-child) { margin-top: 25px; }
         .form-group { margin-bottom: 12px; }
         label { display: block; font-size: 0.8rem; color: #aaaaaa; margin-bottom: 4px; }
-        input[type="text"], input[type="password"] { width: 100%; padding: 8px; background: #3c3c3c; border: 1px solid #555555; color: white; border-radius: 4px; box-sizing: border-box; font-size: 0.9rem; }
+        input[type="text"], input[type="password"], select { width: 100%; padding: 8px; background: #3c3c3c; border: 1px solid #555555; color: white; border-radius: 4px; box-sizing: border-box; font-size: 0.9rem; }
+        select { appearance: auto; }
         input[type="password"] { letter-spacing: 0.1em; }
         .btn-small { background: #333; color: #ccc; border: 1px solid #555; padding: 4px 8px; font-size: 0.75rem; cursor: pointer; border-radius: 4px; margin-top: 4px; transition: 0.2s; }
         .btn-small:hover { background: #444; color: white; }
@@ -79,8 +80,13 @@
         <input type="text" id="ghOwner" placeholder="user_name">
     </div>
     <div class="form-group">
-        <label>リポジトリ名</label>
-        <input type="text" id="ghRepo" placeholder="repo_name">
+        <label style="display: flex; justify-content: space-between; align-items: center;">
+            リポジトリ名
+            <button class="btn-small" id="fetchReposBtn" style="margin: 0;">🔄 取得</button>
+        </label>
+        <select id="ghRepo">
+            <option value="">リポジトリを選択してください...</option>
+        </select>
     </div>
 
     <h2>📱 App Config</h2>
@@ -143,19 +149,89 @@
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     };
     
-    // --- トークン管理 ---
+    // --- 設定管理 (トークン、オーナー、リポジトリ) ---
     const TOKEN_KEY = 'gh_pat_v2_packager';
+    const OWNER_KEY = 'gh_owner_v2_packager';
+    const REPO_KEY = 'gh_repo_v2_packager';
+
     $('ghToken').value = localStorage.getItem(TOKEN_KEY) || '';
+    $('ghOwner').value = localStorage.getItem(OWNER_KEY) || '';
+
     $('saveTokenBtn').onclick = () => {
         const token = $('ghToken').value;
+        const owner = $('ghOwner').value;
         if (token) {
             localStorage.setItem(TOKEN_KEY, token);
-            log('Token stored securely in localStorage.', 'log-suc');
+            localStorage.setItem(OWNER_KEY, owner);
+            log('Settings stored securely in localStorage.', 'log-suc');
+            fetchRepositories(); // 保存時に自動取得を実行
         } else {
             localStorage.removeItem(TOKEN_KEY);
-            log('Token removed from localStorage.');
+            localStorage.removeItem(OWNER_KEY);
+            log('Settings removed from localStorage.');
         }
     };
+
+    $('ghRepo').addEventListener('change', (e) => {
+        localStorage.setItem(REPO_KEY, e.target.value);
+    });
+
+    // --- リポジトリの自動取得処理 ---
+    async function fetchRepositories() {
+        const token = $('ghToken').value;
+        if (!token) {
+            log('GitHub PAT is required to fetch repositories.', 'log-war');
+            return;
+        }
+
+        const repoSelect = $('ghRepo');
+        const btn = $('fetchReposBtn');
+        const savedRepo = localStorage.getItem(REPO_KEY) || '';
+
+        try {
+            btn.disabled = true;
+            btn.innerText = '⏳';
+            repoSelect.innerHTML = '<option value="">ローディング中...</option>';
+            
+            const url = `https://api.github.com/user/repos?per_page=100&sort=updated`;
+            const headers = {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28'
+            };
+
+            const res = await fetch(url, { headers });
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(`${res.status} - ${errData.message}`);
+            }
+            const repos = await res.json();
+            
+            repoSelect.innerHTML = '<option value="">リポジトリを選択してください...</option>';
+            repos.forEach(repo => {
+                const opt = document.createElement('option');
+                opt.value = repo.name;
+                opt.text = repo.name;
+                if (repo.name === savedRepo) opt.selected = true;
+                repoSelect.appendChild(opt);
+            });
+            log('Repositories fetched successfully.', 'log-suc');
+            
+        } catch (e) {
+            repoSelect.innerHTML = '<option value="">取得エラー</option>';
+            log('Failed to fetch repositories: ' + e.message, 'log-err');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = '🔄 取得';
+        }
+    }
+
+    $('fetchReposBtn').onclick = fetchRepositories;
+
+    // 起動時にトークンがあれば自動取得
+    if ($('ghToken').value) {
+        fetchRepositories();
+    }
 
     // --- ファイル選択 & ドラッグ＆ドロップ ---
     const fileInput = $('fileInput');
@@ -282,7 +358,7 @@
     function startPolling(appName) {
         log('Build process queued. Waiting for runner to start...');
         const startTime = new Date();
-        const maxTimeMinutes = 20; // 最大監視時間（Capacitorビルドは時間がかかる場合があるため長めに設定）
+        const maxTimeMinutes = 20; // 最大監視時間
         let foundRunId = null;
 
         if (pollingInterval) clearInterval(pollingInterval);
@@ -294,33 +370,27 @@
                     throw new Error('Build monitoring timed out.');
                 }
 
-                // ワークフローのRun一覧を取得（event=workflow_dispatchでフィルタ）
+                // ワークフローのRun一覧を取得
                 const runsData = await ghApi('/actions/runs?event=workflow_dispatch&per_page=10');
                 if (runsData.workflow_runs.length === 0) return;
 
-                // 対象のRunを特定する
                 let targetRun = null;
                 if (!foundRunId) {
-                    // まだRun IDが特定できていない場合、開始時間以降で最初のdispatchランを探す
-                    targetRun = runsData.workflow_runs.find(run => new Date(run.created_at) >=startTime);
+                    targetRun = runsData.workflow_runs.find(run => new Date(run.created_at) >= startTime);
                     if (targetRun) {
                         foundRunId = targetRun.id;
                         log(`Target build run found. <a href="${targetRun.html_url}" target="_blank">View on GitHub</a>`);
                     }
                 } else {
-                    // 既にIDがわかっている場合は、そのRunの最新状態を取得
                     targetRun = runsData.workflow_runs.find(run => run.id === foundRunId);
                 }
 
-                if (!targetRun) return; // まだ見つからない、または一覧から消えた
+                if (!targetRun) return;
 
                 const status = targetRun.status;
                 const conclusion = targetRun.conclusion;
 
                 setStatus('status-working', `Building (${status})...`);
-                // ログの重複を避けるため、ステータスが変わった時だけログに出すなどの工夫も考えられるが、
-                // ここではシンプルに毎秒コンソールに状況を出す（流れるように）
-                // log(`Current status: ${status}${conclusion ? ` (${conclusion})` : ''}`);
 
                 if (status === 'completed') {
                     clearInterval(pollingInterval);
@@ -330,7 +400,6 @@
                         log('Android APK build succeeded!', 'log-suc');
                         setStatus('status-success', 'Success');
                         
-                        // Artifactsページへのリンクを生成
                         const artifactsUrl = `${targetRun.html_url}#artifacts`;
                         $('downloadLink').href = artifactsUrl;
                         $('downloadArea').style.display = 'block';
