@@ -1,66 +1,82 @@
 # ⚡ Native App Packager
+[![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)](#)
+[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black)](#)
+[![Capacitor](https://img.shields.io/badge/Capacitor-119EFF?logo=capacitor&logoColor=white)](#)
+[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?logo=github-actions&logoColor=white)](#)
 
-Webアセット（HTML / CSS / JavaScript）をブラウザ上の操作だけで **Android ネイティブアプリ (APK)** にパッケージ化する、完全クライアントサイドのWebツールです。
+Webアプリ（HTML / CSS / JS）を、ブラウザ上の操作だけでネイティブAndroidアプリ（APK）に変換・パッケージングする完全サーバーレスなPWAツールです。
+ビルド環境として **GitHub Actions** と **Capacitor** をフル活用し、環境構築なしで即座にアプリ化を実現します。
 
-バックエンドサーバーやローカルの開発環境（Android StudioやNode.js）は一切不要です。あなたの GitHub アカウントと GitHub Actions の強力なCI/CDパイプラインを裏側で活用し、クラウド上でアプリをビルドします。
+## ✨ 特徴 (Features)
 
-## ✨ 主な機能
+- 🚀 **完全ブラウザ完結**: バックエンドサーバーは不要です。すべてブラウザからGitHub API経由で完結します。
+- 📁 **選べるソースコード**: 
+  - ローカルからWebアセット（フォルダ/ファイル）をドラッグ＆ドロップで一括読み込み。
+  - 連携したGitHubリポジトリ内の特定ディレクトリ（`dist`や`build`など）から対象ファイルを直接選択。
+- 🎨 **アプリ情報のカスタマイズ**: アプリ名、パッケージID、アプリアイコン（画像アップロード または アプリ名からの自動生成）を設定可能。
+- 🤖 **CI/CDの完全自動化**: Capacitorの初期構成、Androidプロジェクトの生成、APKのビルドまでを行うGitHub Actionsワークフローを自動生成・実行。
+- 📥 **ダイレクトダウンロード**: GitHub Actionsでのビルド完了を自動で検知し、画面上から直接APKをダウンロードできます。
+- 🔒 **セキュア設計**: GitHubトークンなどの機密情報はブラウザの IndexedDB にのみ保存され、外部のサードパーティサーバーには一切送信されません。
 
-- **🔌 サーバーレス・アーキテクチャ**
-  すべての処理はブラウザと GitHub REST API のみで完結します。
-- **📁 柔軟なWebアセット選択**
-  - **ローカルから**: フォルダのドラッグ＆ドロップ、複数ファイルの選択に対応（内部でZIP化して転送）。
-  - **GitHubから**: 連携したアカウント内の別リポジトリから、指定パスのファイルを直接インポート。
-- **🤖 クラウド自動ビルド**
-  自動で Capacitor ベースの GitHub Actions ワークフロー (`build-apk.yml`) を生成・コミットし、Android APK のビルドをキックします。
-- **📱 アプリのカスタマイズ**
-  アプリ名、パッケージID（自動生成機能あり）、アプリアイコンを直感的なUIで設定可能。`index.html` や `README.md` からのアプリ名自動抽出機能も搭載。
-- **💾 セキュアなローカル保存**
-  設定情報や GitHub PAT (Personal Access Token) はブラウザの IndexedDB に安全に保存され、外部サーバーには一切送信されません。
-- **🔔 リアルタイム監視 & スリープ防止**
-  ビルドの進行状況をコンソールでリアルタイムに確認可能。また、Wake Lock API により監視中のデバイススリープを防止します。
-- **📱 PWA対応**
-  ツール自体がプログレッシブWebアプリとしてインストール可能です。
+## ⚙️ 仕組み (How it works)
 
-## 🏗 アーキテクチャ（仕組み）
+1. **構成の決定**: アプリ情報と、パッケージングしたいWebアセットを選択します。
+2. **ZIP化 & プッシュ**: 選択されたローカルファイルを `JSZip` でZIP化し、GitHub API経由で指定リポジトリにアップロードします（GitHubソース選択時はスキップ）。
+3. **ワークフロー自動生成**: Capacitorの設定を含んだCI/CD定義ファイル（`build-apk.yml`）をリポジトリに生成・コミットします。
+4. **クラウドビルド**: GitHub API（`workflow_dispatch`）をトリガーし、GitHub Actions上でJava環境・Capacitorをセットアップ、Android APKをビルドします。
+5. **ポーリング監視**: ブラウザがActionsのステータスを監視し、成功時に成果物（Artifact）のダウンロードリンクを生成します。
 
-1. **アップロード**: フロントエンドがWebアセットをZIP化（またはGitHubリポジトリを参照）し、GitHub API経由でデプロイ用リポジトリにプッシュします。
-2. **CI構成**: 同時にビルド定義ファイル（`build-apk.yml`）を生成・コミットします。
-3. **トリガー**: GitHub API (`workflow_dispatch`) を呼び出し、Actionsを起動します。
-4. **クラウドビルド**: GitHub Actionsランナー上で Capacitor 環境が構築され、Android APK (`assembleDebug`) がビルドされます。
-5. **ダウンロード**: ビルド完了をポーリングで検知し、生成されたAPKのダウンロードリンク（Artifacts）を提示します。
+## 📋 事前準備 (Prerequisites)
 
-## 🚀 使い方
+本ツールを使用するには、GitHubアカウントと以下の準備が必要です。
 
-### 1. 事前準備
-1. **GitHubアカウント** と **Personal Access Token (PAT)** を用意します。
-   - PATには、リポジトリへの読み書き権限（Classicトークンの場合は `repo` と `workflow` スコープ）が必要です。
-2. アプリビルド処理を行うための **空のリポジトリ** を GitHub 上に作成しておきます（ここに一時ファイルと Actions のログが保存されます）。
+1. **GitHub Personal Access Token (PAT) の取得**:
+   - GitHub設定からトークンを発行してください。
+   - **Fine-grained PAT (推奨)**: 特定のリポジトリに対する `Contents`, `Actions`, `Workflows` の Read/Write 権限が必要です。
+   - **Classic PAT**: `repo` および `workflow` スコープが必要です。
+2. **作業用リポジトリの作成**:
+   - ソースコードの一時保存と、GitHub Actionsを実行するための**空のリポジトリ**を作成しておいてください。（セキュリティとActions無料枠の観点から **Private** リポジトリを強く推奨します）
 
-### 2. ツールの起動
-本プロジェクトは単一の HTML ファイル (`index.html`) で構成されています。
-ファイルをダブルクリックしてブラウザで開くか、GitHub Pages や Vercel 等の静的ホスティングサービスに配置するだけで即座に利用可能です。
+## 🚀 使い方 (Usage)
 
-### 3. パッケージ化の手順
-1. 画面右上の **「⚙️ (設定)」** アイコンをクリックします。
-2. 取得した GitHub PAT を入力し、「💾 トークンを保存して接続」をクリックします。
-3. 「デプロイ先リポジトリ」のドロップダウンから、手順1で作成した空のリポジトリを選択します。
-4. メイン画面に戻り、以下の設定を行います：
-   - **アプリの表示名**: ホーム画面に表示される名前。
-   - **パッケージID**: `com.example.myapp` 形式のID。
-   - **アプリアイコン**: 512x512のPNG画像を設定（未設定の場合はデフォルトアイコン）。
-5. **Webアセット (www)** を選択します。ローカルからアップロードするか、GitHubリポジトリから取得するかを選択できます。
-6. **「🚀 パッケージ & デプロイ」** ボタンをクリックします。
-7. ログコンソールに進行状況が表示されます。完了すると、Artifactページへのリンクが表示され、APKをダウンロードできます！
+### 1. 初期設定 (GitHub連携)
+1. 画面右上の歯車アイコン（⚙️）をクリックして設定画面を開きます。
+2. 取得した GitHub トークン を入力し、「💾 トークンを保存して接続」をクリックします。
+3. ユーザー名が自動取得されたら設定画面を閉じます。
 
-## 🛠 技術スタック
+### 2. アプリの構成 (App Configuration)
+- **アプリの表示名**: ホーム画面に表示されるアプリ名を入力します。（`index.html` や `README.md` から自動推測されます）
+- **パッケージID**: `com.example.myapp` のような一意識別子を入力します（自動生成ボタンあり）。
+- **アプリアイコン**: 512x512のPNG画像を推奨します。設定しない場合は、テーマカラーのイニシャルアイコンが自動生成されます。
 
-- **フロントエンド**: HTML5, CSS3 (CSS Variables), Vanilla JavaScript
-- **外部ライブラリ**: [JSZip](https://stuk.github.io/jszip/) (ZIPアーカイブ生成用)
-- **ビルド・基盤**: GitHub REST API, GitHub Actions, [Capacitor](https://capacitorjs.com/)
-- **ブラウザAPI**: IndexedDB, File API / Drag & Drop API, Wake Lock API
+### 3. アセットの選択 (Web Assets)
+- **ローカルからアップロード**: 
+  - `index.html` を含むフォルダを点線エリアにドラッグ＆ドロップします。
+- **GitHubから選択**:
+  - 対象のリポジトリとディレクトリのパス（例: `/dist`）を指定し、「📂 ファイル一覧を取得」をクリック。パッケージに含めたいファイルにチェックを入れます。
 
-## ⚠️ 注意事項とセキュリティ
+### 4. パッケージ & デプロイ (Deploy)
+1. 対象リポジトリを選択した状態で、「🚀 パッケージ & デプロイ」ボタンをクリックします。
+2. コンソールに進行状況（デプロイログ）がリアルタイム表示されます。（※処理中は Wake Lock API によりスマホ・PCのスリープが防止されます）
+3. 数分後、ビルドが完了すると「📥 APKをダウンロード」ボタンが表示されます。
 
-- **トークンの管理**: 入力された GitHub PAT は、お使いのブラウザ内（IndexedDB）にのみ保存されます。共有PCなどをご利用の場合は、使用後に設定画面から「🗑️ 設定を初期化」を実行してデータを削除してください。
-- **GitHub API 制限**: ファイルの取得やアップロードには GitHub API を使用するため、過度な連続利用は API のレート制限に達する可能性があります。
+## 🛠️ 使用技術 (Technologies)
+
+- **Frontend**: HTML5, CSS3, Vanilla JavaScript
+- **Libraries**: [JSZip](https://stuk.github.io/jszip/) (3.10.1)
+- **Storage**: IndexedDB (PWA Ready)
+- **Backend / CI/CD**: GitHub REST API, GitHub Actions
+- **Mobile Framework**: [Ionic Capacitor](https://capacitorjs.com/) (v5)
+- **Build Target**: Android (Node.js 24, Java 17)
+
+## ⚠️ セキュリティとプライバシー (Security)
+
+- **データ通信**: ブラウザと GitHub API (`api.github.com`) 間でのみ通信を行います。作成者や第三者のサーバーを経由することは一切ありません。
+- **データ保存**: PAT（アクセストークン）や設定データは、お使いの端末のローカルデータベース（IndexedDB）にのみ保存されます。
+
+## 📝 免責事項 (Disclaimer)
+
+本ソフトウェアは「現状有姿（AS IS）」で提供されます。本ツールの使用によって生じたデータの損失、GitHub Actionsの無料利用枠の超過、その他いかなる損害についても、作者は一切の責任を負いません。GitHub Actionsの利用規約および制限事項を遵守してご利用ください。
+
+---
+*Created with ⚡ Native App Packager*
