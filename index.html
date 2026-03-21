@@ -1152,7 +1152,17 @@ jobs:
         if: github.event.inputs.app_icon_base64 != ''
         run: |
           mkdir -p temp_icon
-          echo "\${{ github.event.inputs.app_icon_base64 }}" | base64 -d > temp_icon/icon.png
+          ICON_B64="\${{ github.event.inputs.app_icon_base64 }}"
+          if [ "$ICON_B64" = "__FROM_REPO__" ]; then
+            if [ -f "app-icon.png.b64" ]; then
+              base64 -d app-icon.png.b64 > temp_icon/icon.png
+            else
+              echo "⚠️ app-icon.png.b64 not found, skipping icon"
+              exit 0
+            fi
+          else
+            echo "$ICON_B64" | base64 -d > temp_icon/icon.png
+          fi
           RES_DIR="android/app/src/main/res"
           if [ -d "$RES_DIR" ]; then
             for dpi in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
@@ -1278,21 +1288,72 @@ jobs:
             });
             log('✅ ワークフローファイルを更新・コミットしました。', 'log-suc');
             
-            log('⏳ GitHub Actionsが認識するのを待機中 (10秒)...');
-            await new Promise(resolve => setTimeout(resolve, 10000));
+            log('⏳ GitHub Actionsが認識するのを待機中 (15秒)...');
+            await new Promise(resolve => setTimeout(resolve, 15000));
             
             log('5/5: ⚡ GitHub Actionsワークフローをトリガー中...');
-            await ghApi('/actions/workflows/build-apk.yml/dispatches', 'POST', { 
-                ref: 'main', 
-                inputs: { 
-                    app_name: appName, 
-                    app_id: appId,
-                    source_type: sourceType,
-                    source_path: sourceType === 'github' ? sourcePath : '/',
-                    selected_files: selectedGhPaths,
-                    app_icon_base64: pureBase64Icon
-                } 
-            });
+
+            // デフォルトブランチを自動取得 (main / master 等)
+            let defaultBranch = 'main';
+            try {
+                const repoInfo = await ghApi('');
+                defaultBranch = repoInfo.default_branch || 'main';
+                log(`   ブランチ: ${defaultBranch}`);
+            } catch(e) {
+                log('⚠️ ブランチ検出失敗、"main" を使用します', 'log-war');
+            }
+
+            // アイコンBase64はdispatch inputの65535文字制限に注意
+            let iconForDispatch = pureBase64Icon;
+            if (iconForDispatch && iconForDispatch.length > 60000) {
+                log('⚠️ アイコンデータが大きすぎるため、dispatch inputから除外します。リポジトリにコミットします...', 'log-war');
+                try {
+                    let iconSha = null;
+                    try {
+                        const existingIcon = await ghApi('/contents/app-icon.png.b64');
+                        iconSha = existingIcon.sha;
+                    } catch(e) {}
+                    await ghApi('/contents/app-icon.png.b64', 'PUT', {
+                        message: 'Update app icon',
+                        content: btoa(iconForDispatch),
+                        sha: iconSha
+                    });
+                    iconForDispatch = '__FROM_REPO__';
+                    log('✅ アイコンをリポジトリにコミットしました', 'log-suc');
+                } catch(e) {
+                    log('⚠️ アイコンコミット失敗、アイコンなしで続行します', 'log-war');
+                    iconForDispatch = '';
+                }
+            }
+
+            // リトライ付きでdispatch
+            let dispatchSuccess = false;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    await ghApi('/actions/workflows/build-apk.yml/dispatches', 'POST', { 
+                        ref: defaultBranch, 
+                        inputs: { 
+                            app_name: appName, 
+                            app_id: appId,
+                            source_type: sourceType,
+                            source_path: sourceType === 'github' ? sourcePath : '/',
+                            selected_files: selectedGhPaths,
+                            app_icon_base64: iconForDispatch
+                        } 
+                    });
+                    dispatchSuccess = true;
+                    break;
+                } catch(e) {
+                    log(`⚠️ トリガー試行 ${attempt}/3 失敗: ${e.message}`, 'log-war');
+                    if (attempt < 3) {
+                        log(`⏳ ${10 * attempt}秒後にリトライ...`);
+                        await new Promise(r => setTimeout(r, 10000 * attempt));
+                    } else {
+                        throw e;
+                    }
+                }
+            }
+
             log('✅ ワークフローのディスパッチ成功.', 'log-suc');
 
             startPolling(appName);
