@@ -54,17 +54,12 @@ jobs:
               webDir: 'www'
             };
             require('fs').writeFileSync('capacitor.config.json', JSON.stringify(cfg, null, 2));
-            console.log('--- capacitor.config.json ---');
-            console.log(JSON.stringify(cfg, null, 2));
           " "${{ github.event.inputs.app_id }}" "${{ github.event.inputs.app_name }}"
 
       - name: Install Capacitor
         run: |
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
-          echo "--- Installed packages ---"
-          npx cap --version
-          ls node_modules/@capacitor/
 
       - name: Extract Web Assets (Local)
         if: github.event.inputs.source_type == 'local'
@@ -72,11 +67,9 @@ jobs:
           rm -rf www www_temp
           mkdir www
           unzip -o www.zip -d www_temp
-          # ネストされたフォルダ構造を自動フラット化
           if [ -f "www_temp/index.html" ]; then
             mv www_temp/* www/ 2>/dev/null || true
           else
-            # サブフォルダ内にindex.htmlがある場合
             FOUND=$(find www_temp -name "index.html" -type f | head -1)
             if [ -n "$FOUND" ]; then
               TARGET_DIR=$(dirname "$FOUND")
@@ -86,8 +79,6 @@ jobs:
             fi
           fi
           rm -rf www_temp
-          echo "=== www/ contents ==="
-          find www -type f | head -20
 
       - name: Checkout Source Repo (GitHub)
         if: github.event.inputs.source_type == 'github'
@@ -106,9 +97,6 @@ jobs:
           SOURCE_PATH="${SOURCE_PATH%/}"
           SELECTED="${{ github.event.inputs.selected_files }}"
           
-          echo "DEBUG: SOURCE_PATH=[$SOURCE_PATH]"
-          echo "DEBUG: SELECTED=[$SELECTED]"
-          
           if [ -n "$SELECTED" ]; then
             IFS=',' read -ra ADDR <<< "$SELECTED"
             for i in "${ADDR[@]}"; do
@@ -118,7 +106,6 @@ jobs:
               else
                 DEST="${i#$SOURCE_PATH/}"
               fi
-              echo "Copying: source_repo_temp/$i -> www/$DEST"
               mkdir -p "www/$(dirname "$DEST")" || true
               if [ -d "source_repo_temp/$i" ]; then
                 cp -R "source_repo_temp/$i/." "www/$DEST/" 2>/dev/null || cp -R "source_repo_temp/$i" "www/$DEST" || true
@@ -140,26 +127,18 @@ jobs:
               cp -R "source_repo_temp/$SOURCE_PATH/." www/ || true
             fi
           fi
-          
-          echo "=== www/ contents ==="
-          find www -type f | head -30
-          echo "=== Total files: $(find www -type f | wc -l) ==="
 
       - name: Verify Web Assets
         run: |
           if [ ! -f "www/index.html" ]; then
             echo "::error::index.html not found in www/ directory!"
-            echo "Contents of www/:"
-            ls -laR www/ | head -50
             exit 1
           fi
-          echo "✅ index.html found in www/"
 
       - name: Android Platform Setup
         run: |
           npx cap add android
           npx cap sync android
-          echo "✅ Android platform added and synced"
 
       - name: Set App Icon and PWA Manifest
         if: github.event.inputs.app_icon_base64 != ''
@@ -170,7 +149,6 @@ jobs:
             if [ -f "app-icon.png.b64" ]; then
               base64 -d app-icon.png.b64 > temp_icon/icon.png
             else
-              echo "⚠️ app-icon.png.b64 not found, skipping icon"
               exit 0
             fi
           else
@@ -192,9 +170,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "JAVA_HOME=$JAVA_HOME"
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
