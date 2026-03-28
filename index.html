@@ -1265,7 +1265,27 @@ jobs:
                 }
 
                 log('3/5: ☁️ www.zip をGitHubへアップロード中...');
-                await ghApi('/contents/www.zip', 'PUT', { message: `Deploy Web Assets (App: ${appName})`, content: zipBase64, sha: sha });
+                // 修正: 1MB超の場合はGit Data APIにフォールバック
+                try {
+                    await ghApi('/contents/www.zip', 'PUT', { message: `Deploy Web Assets (App: ${appName})`, content: zipBase64, sha: sha });
+                } catch(uploadErr) {
+                    if (!uploadErr.message.includes('too large') && !uploadErr.message.includes('larger than') && !uploadErr.message.includes('422')) throw uploadErr;
+                    log('⚠️ ZIPが1MB超のためGit Data APIで再試行中...', 'log-war');
+                    const blobRes = await ghApi('/git/blobs', 'POST', { content: zipBase64, encoding: 'base64' });
+                    const refRes = await ghApi('/git/ref/heads/' + defaultBranch);
+                    const commitSha2 = refRes.object.sha;
+                    const baseTreeSha = (await ghApi('/git/commits/' + commitSha2)).tree.sha;
+                    const treeRes = await ghApi('/git/trees', 'POST', {
+                        base_tree: baseTreeSha,
+                        tree: [{ path: 'www.zip', mode: '100644', type: 'blob', sha: blobRes.sha }]
+                    });
+                    const newCommit = await ghApi('/git/commits', 'POST', {
+                        message: 'Deploy Web Assets via Git Data API (large file)',
+                        tree: treeRes.sha,
+                        parents: [commitSha2]
+                    });
+                    await ghApi('/git/refs/heads/' + defaultBranch, 'PATCH', { sha: newCommit.sha });
+                }
                 log('✅ アップロード成功.', 'log-suc');
             } else {
                 log('1〜3/5: ☁️ GitHubリポジトリからの取得を選択しました。ZIPアップロードをスキップします。');
@@ -1313,7 +1333,7 @@ jobs:
                     } catch(e) {}
                     await ghApi('/contents/app-icon.png.b64', 'PUT', {
                         message: 'Update app icon',
-                        content: btoa(iconForDispatch),
+                        content: iconForDispatch, // 修正: iconForDispatchはすでにbase64なのでbtoa()不要（二重エンコードバグ修正）
                         sha: iconSha
                     });
                     iconForDispatch = '__FROM_REPO__';

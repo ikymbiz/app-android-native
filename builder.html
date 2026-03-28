@@ -33,11 +33,77 @@
 </html></textarea>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
     const GITHUB_CONFIG = {
         token: 'あなたのTOKEN',
         owner: 'ユーザー名',
         repo: 'リポジトリ名'
+    };
+
+    // GitHub API 共通ヘルパー
+    const ghApi = async (path, method = 'GET', body = null) => {
+        const res = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}${path}`, {
+            method,
+            headers: {
+                'Authorization': `Bearer ${GITHUB_CONFIG.token}`,
+                'Accept': 'application/vnd.github+json',
+                'Content-Type': 'application/json'
+            },
+            body: body ? JSON.stringify(body) : null
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || `HTTP ${res.status}`);
+        }
+        return method === 'DELETE' ? null : res.json();
+    };
+
+    // www.zip をアップロード（1MB超は Git Data API にフォールバック）
+    const uploadZip = async (zipBase64, statusEl) => {
+        // 既存ファイルの SHA を取得
+        let sha = null;
+        try {
+            const existing = await ghApi('/contents/www.zip');
+            sha = existing.sha;
+        } catch (e) {
+            if (!e.message.includes('404')) throw e;
+        }
+
+        // ① Contents API で試行（~1MB まで）
+        try {
+            await ghApi('/contents/www.zip', 'PUT', {
+                message: 'Update www.zip via Builder',
+                content: zipBase64,
+                sha: sha
+            });
+            return;
+        } catch (e) {
+            if (!e.message.includes('too large') && !e.message.includes('larger than') && !e.message.includes('422')) {
+                throw e;
+            }
+        }
+
+        // ② Git Data API（大容量ファイル対応）
+        statusEl.innerText = '1/2 大容量ZIPをGit Data APIでアップロード中...';
+        const blobRes = await ghApi('/git/blobs', 'POST', { content: zipBase64, encoding: 'base64' });
+
+        const refRes = await ghApi('/git/ref/heads/main');
+        const commitSha = refRes.object.sha;
+        const baseTreeSha = (await ghApi('/git/commits/' + commitSha)).tree.sha;
+
+        const treeRes = await ghApi('/git/trees', 'POST', {
+            base_tree: baseTreeSha,
+            tree: [{ path: 'www.zip', mode: '100644', type: 'blob', sha: blobRes.sha }]
+        });
+
+        const newCommit = await ghApi('/git/commits', 'POST', {
+            message: 'Update www.zip via Builder (large file)',
+            tree: treeRes.sha,
+            parents: [commitSha]
+        });
+
+        await ghApi('/git/refs/heads/main', 'PATCH', { sha: newCommit.sha });
     };
 
     document.getElementById('deployBtn').onclick = async () => {
@@ -47,42 +113,34 @@
         const appId = document.getElementById('appId').value;
 
         try {
-            status.innerText = '1/2 ファイルを更新中...';
-            
-            // ① 現在のファイルのSHA（バージョン識別子）を取得
-            const fileRes = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/www/index.html`, {
-                headers: { 'Authorization': `Bearer ${GITHUB_CONFIG.token}` }
-            });
-            const fileData = await fileRes.json();
+            status.innerText = '1/2 www.zip を作成してアップロード中...';
 
-            // ② HTMLファイルを更新
-            await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/www/index.html`, {
-                method: 'PUT',
-                headers: { 'Authorization': `Bearer ${GITHUB_CONFIG.token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: 'Update index.html via Builder',
-                    content: btoa(unescape(encodeURIComponent(content))), // Base64エンコード
-                    sha: fileData.sha
-                })
-            });
+            // ① index.html を www.zip に固めてアップロード
+            // 修正: index.htmlの直接コミットをやめ、Workflowが期待するwww.zipを送る
+            const zip = new JSZip();
+            zip.file('index.html', content);
+            const zipBase64 = await zip.generateAsync({ type: 'base64' });
+            await uploadZip(zipBase64, status);
 
             status.innerText = '2/2 ビルド命令を送信中...';
 
-            // ③ GitHub Actionsを起動
-            const actionRes = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/actions/workflows/build-apk.yml/dispatches`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${GITHUB_CONFIG.token}`, 'Accept': 'application/vnd.github+json' },
-                body: JSON.stringify({
-                    ref: 'main',
-                    inputs: { app_name: appName, app_id: appId }
-                })
+            // ② GitHub Actions を起動
+            // 修正: source_type: 'local' を明示的に送信（未送信だとWorkflowが正しく動かない）
+            await ghApi('/actions/workflows/build-apk.yml/dispatches', 'POST', {
+                ref: 'main',
+                inputs: {
+                    app_name: appName,
+                    app_id: appId,
+                    source_type: 'local',
+                    source_path: '/',
+                    selected_files: '',
+                    app_icon_base64: ''
+                }
             });
 
-            if (actionRes.ok) {
-                status.innerText = '✅ 完了！Actionsタブを確認してください。';
-            }
+            status.innerText = '✅ 完了！Actionsタブを確認してください。';
         } catch (e) {
-            status.innerText = '❌ エラーが発生しました。';
+            status.innerText = '❌ エラー: ' + e.message;
             console.error(e);
         }
     };
