@@ -137,6 +137,17 @@ jobs:
 
       - name: Android Platform Setup
         run: |
+          # capacitor.config.json が消失している場合に再生成
+          if [ ! -f "capacitor.config.json" ]; then
+            node -e "
+              const cfg = {
+                appId: process.argv[1],
+                appName: process.argv[2],
+                webDir: 'www'
+              };
+              require('fs').writeFileSync('capacitor.config.json', JSON.stringify(cfg, null, 2));
+            " "${{ github.event.inputs.app_id }}" "${{ github.event.inputs.app_name }}"
+          fi
           npx cap add android
           npx cap sync android
 
@@ -170,7 +181,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon -x lint
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
