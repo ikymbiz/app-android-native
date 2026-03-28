@@ -31,9 +31,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v4
 
@@ -42,16 +39,6 @@ jobs:
 
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
-
-      - name: Setup Android SDK
-        run: |
-          # ライセンス承認
-          yes | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-          # 必要な SDK コンポーネントをインストール
-          ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager \
-            "platforms;android-34" \
-            "build-tools;34.0.0" \
-            --sdk_root=${ANDROID_HOME}
 
       - name: Clean existing config files
         run: |
@@ -153,14 +140,6 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Patch Gradle for Compatibility
-        run: |
-          # Lint エラー回避: abortOnError を false に設定
-          cd android/app
-          if ! grep -q "lintOptions" build.gradle; then
-            sed -i '/android {/a\    lintOptions {\n        abortOnError false\n    }' build.gradle
-          fi
-
       - name: Set App Icon and PWA Manifest
         if: github.event.inputs.app_icon_base64 != ''
         run: |
@@ -191,7 +170,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon -x lint
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
