@@ -647,9 +647,14 @@
     // --- パッケージID自動生成 ---
     $('generateAppIdBtn').onclick = async () => {
         const name = $('appName').value.trim() || 'myapp';
-        const base = name.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-        const hash = Math.random().toString(36).substring(2, 10);
-        const newId = `com.example.${base || 'app'}.${hash}`;
+        // アンダースコアを除去し、英小文字と数字のみ許可
+        let base = name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/^[0-9]+/, '') || 'app';
+        // 数字で始まらないランダムサフィックス（英字始まり保証）
+        const chars = 'abcdefghijklmnopqrstuvwxyz';
+        const digits = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        let hash = chars[Math.floor(Math.random() * chars.length)];
+        for (let i = 0; i < 7; i++) hash += digits[Math.floor(Math.random() * digits.length)];
+        const newId = `com.example.${base}.${hash}`;
         $('appId').value = newId;
         await dbSave('app_id', newId);
         showToast(`🎲 パッケージIDを自動生成しました`);
@@ -1088,6 +1093,21 @@ jobs:
 
       - name: Configure Capacitor
         run: |
+          RAW_ID="\${{ github.event.inputs.app_id }}"
+          # 各セグメントを検証・修正: 英字始まり、英数字のみ
+          SAFE_ID=$(echo "$RAW_ID" | tr '_' '' | awk -F. '{
+            for(i=1;i<=NF;i++){
+              seg=$i
+              # 数字始まりなら先頭に"a"を付与
+              if(seg ~ /^[0-9]/) seg="a"seg
+              # 英数字以外を除去
+              gsub(/[^a-zA-Z0-9]/,"",seg)
+              if(seg=="") seg="app"
+              printf "%s%s", (i>1?".":""), seg
+            }
+            print ""
+          }')
+          echo "パッケージID: $RAW_ID -> $SAFE_ID"
           node -e "
             const cfg = {
               appId: process.argv[1],
@@ -1095,7 +1115,7 @@ jobs:
               webDir: 'www'
             };
             require('fs').writeFileSync('capacitor.config.json', JSON.stringify(cfg, null, 2));
-          " "\${{ github.event.inputs.app_id }}" "\${{ github.event.inputs.app_name }}"
+          " "$SAFE_ID" "\${{ github.event.inputs.app_name }}"
 
       - name: Install Capacitor
         run: |
