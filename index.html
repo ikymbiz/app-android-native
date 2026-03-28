@@ -601,7 +601,20 @@
     // --- Actions向けアイコン変換処理 ---
     const getIconForActions = async () => {
         if (isCustomIcon && currentIconBase64 && currentIconBase64.includes(',')) {
-            return currentIconBase64.split(',')[1];
+            // カスタムアイコンも512×512にリサイズしてサイズを抑制する
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 512;
+                    canvas.height = 512;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, 512, 512);
+                    resolve(canvas.toDataURL('image/png').split(',')[1]);
+                };
+                img.onerror = () => resolve(currentIconBase64.split(',')[1]);
+                img.src = currentIconBase64;
+            });
         }
         
         // デフォルトSVGをCanvasを使って512x512のPNGのBase64文字列として生成する
@@ -1039,6 +1052,10 @@ on:
         description: '対象ファイル (カンマ区切り)'
         default: ''
         required: false
+      source_repo:
+        description: 'ソースリポジトリ (owner/repo 形式、github モード時)'
+        default: ''
+        required: false
       app_icon_base64:
         description: 'アプリアイコン (Base64 PNG)'
         default: ''
@@ -1100,6 +1117,8 @@ jobs:
         if: github.event.inputs.source_type == 'github'
         uses: actions/checkout@v4
         with:
+          repository: \${{ github.event.inputs.source_repo }}
+          token: \${{ secrets.GITHUB_TOKEN }}
           path: source_repo_temp
           fetch-depth: 1
 
@@ -1333,7 +1352,7 @@ jobs:
                     } catch(e) {}
                     await ghApi('/contents/app-icon.png.b64', 'PUT', {
                         message: 'Update app icon',
-                        content: iconForDispatch, // 修正: iconForDispatchはすでにbase64なのでbtoa()不要（二重エンコードバグ修正）
+                        content: btoa(iconForDispatch),
                         sha: iconSha
                     });
                     iconForDispatch = '__FROM_REPO__';
@@ -1353,6 +1372,7 @@ jobs:
                             app_name: appName, 
                             app_id: appId,
                             source_type: sourceType,
+                            source_repo: sourceType === 'github' ? (owner + '/' + sourceRepo) : '',
                             source_path: sourceType === 'github' ? sourcePath : '/',
                             selected_files: selectedGhPaths,
                             app_icon_base64: iconForDispatch
@@ -1401,7 +1421,7 @@ jobs:
                     throw new Error('ビルド監視がタイムアウトしました。GitHubのActionsページを直接確認してください。');
                 }
 
-                const runsData = await ghApi('/actions/runs?event=workflow_dispatch&per_page=5');
+                const runsData = await ghApi('/actions/workflows/build-apk.yml/runs?event=workflow_dispatch&per_page=5');
                 networkErrorCount = 0; 
 
                 if (!runsData || runsData.workflow_runs.length === 0) {
@@ -1548,11 +1568,12 @@ jobs:
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            URL.revokeObjectURL(blobUrl);
+            // revokeは数秒後に遅延させてブラウザがダウンロードを開始できるようにする
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
 
             btn.innerText = origText;
             btn.style.pointerEvents = 'auto';
-            showToast('✅ ダウンロードが完了しました。ダウンロードしたZIPファイルを開き、app-debug.apkをインストールしてください。');
+            showToast('✅ ダウンロードを開始しました。ダウンロードフォルダのZIPを開き、app-debug.apkをインストールしてください。');
         } catch(err) {
             console.error(err);
             showToast('❌ 直接ダウンロードに失敗しました。Actionsページを開きます。');
