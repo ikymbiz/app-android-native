@@ -612,8 +612,8 @@
                     canvas.height = 512;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, 512, 512);
-                    const result = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
-                    log(`✅ [icon] リサイズ完了 (JPEG): ${origLen}文字 → ${result.length}文字 (約${Math.round(result.length*3/4/1024)}KB)`);
+                    const result = canvas.toDataURL('image/png').split(',')[1];
+                    log(`✅ [icon] リサイズ完了 (PNG): ${origLen}文字 → ${result.length}文字 (約${Math.round(result.length*3/4/1024)}KB)`);
                     resolve(result);
                 };
                 img.onerror = (err) => {
@@ -624,7 +624,7 @@
             });
         }
         
-        // デフォルトSVGをCanvasで512x512 JPEG(0.85品質)に変換してサイズを削減する
+        // デフォルトSVGをCanvasで512x512 PNGに変換する
         return new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
@@ -635,8 +635,8 @@
                 ctx.fillStyle = '#1e1e1e';
                 ctx.fillRect(0, 0, 512, 512);
                 ctx.drawImage(img, 0, 0, 512, 512);
-                const result = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
-                log(`ℹ️ [icon] デフォルトアイコン: JPEG変換完了 (${result.length}文字, 約${Math.round(result.length*3/4/1024)}KB)`);
+                const result = canvas.toDataURL('image/png').split(',')[1];
+                log(`ℹ️ [icon] デフォルトアイコン: PNG変換完了 (${result.length}文字, 約${Math.round(result.length*3/4/1024)}KB)`);
                 resolve(result);
             };
             img.onerror = () => resolve(''); // フォールバック
@@ -1349,11 +1349,11 @@ jobs:
                 log('⚠️ ブランチ検出失敗、"main" を使用します', 'log-war');
             }
 
-            let iconForDispatch = pureBase64Icon;
-            const iconKB = iconForDispatch ? Math.round(iconForDispatch.length * 3 / 4 / 1024) : 0;
-            log(`🖼️ アイコン情報: isCustom=${isCustomIcon}, base64長=${iconForDispatch ? iconForDispatch.length : 0}文字 (約${iconKB}KB)`);
-            if (iconForDispatch && iconForDispatch.length > 60000) {
-                log(`⚠️ アイコンデータが大きすぎます (${iconForDispatch.length}文字 / 閾値60000文字)。リポジトリにコミットします...`, 'log-war');
+            // アイコンは常にリポジトリ経由（app-icon.png.b64にコミット）でワークフローに渡す
+            let iconForDispatch = '';
+            if (pureBase64Icon) {
+                const iconKB = Math.round(pureBase64Icon.length * 3 / 4 / 1024);
+                log(`🖼️ アイコンをリポジトリにコミット中... (${pureBase64Icon.length}文字, 約${iconKB}KB)`);
                 try {
                     let iconSha = null;
                     try {
@@ -1362,17 +1362,15 @@ jobs:
                     } catch(e) {}
                     await ghApi('/contents/app-icon.png.b64', 'PUT', {
                         message: 'Update app icon',
-                        content: btoa(iconForDispatch),
+                        content: btoa(pureBase64Icon),
                         sha: iconSha
                     });
                     iconForDispatch = '__FROM_REPO__';
                     log('✅ アイコンをリポジトリにコミットしました', 'log-suc');
                 } catch(e) {
-                    log('⚠️ アイコンコミット失敗、アイコンなしで続行します', 'log-war');
-                    iconForDispatch = '';
+                    log(`⚠️ アイコンコミット失敗、アイコンなしで続行: ${e.message}`, 'log-war');
                 }
             }
-
             let dispatchSuccess = false;
             for (let attempt = 1; attempt <= 3; attempt++) {
                 try {
