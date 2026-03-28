@@ -612,8 +612,8 @@
                     canvas.height = 512;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, 512, 512);
-                    const result = canvas.toDataURL('image/png').split(',')[1];
-                    log(`✅ [icon] リサイズ完了: ${origLen}文字 → ${result.length}文字 (約${Math.round(result.length*3/4/1024)}KB)`);
+                    const result = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+                    log(`✅ [icon] リサイズ完了 (JPEG): ${origLen}文字 → ${result.length}文字 (約${Math.round(result.length*3/4/1024)}KB)`);
                     resolve(result);
                 };
                 img.onerror = (err) => {
@@ -624,7 +624,7 @@
             });
         }
         
-        // デフォルトSVGをCanvasを使って512x512のPNGのBase64文字列として生成する
+        // デフォルトSVGをCanvasで512x512 JPEG(0.85品質)に変換してサイズを削減する
         return new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
@@ -632,11 +632,12 @@
                 canvas.width = 512;
                 canvas.height = 512;
                 const ctx = canvas.getContext('2d');
-                // PWAのテーマカラーに合わせて背景色を塗る
                 ctx.fillStyle = '#1e1e1e';
                 ctx.fillRect(0, 0, 512, 512);
                 ctx.drawImage(img, 0, 0, 512, 512);
-                resolve(canvas.toDataURL('image/png').split(',')[1]);
+                const result = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+                log(`ℹ️ [icon] デフォルトアイコン: JPEG変換完了 (${result.length}文字, 約${Math.round(result.length*3/4/1024)}KB)`);
+                resolve(result);
             };
             img.onerror = () => resolve(''); // フォールバック
             img.src = DEFAULT_SVG_ICON;
