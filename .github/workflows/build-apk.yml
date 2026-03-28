@@ -23,6 +23,10 @@ on:
         description: '対象ファイル (カンマ区切り)'
         default: ''
         required: false
+      source_repo:
+        description: 'ソースリポジトリ (owner/repo 形式、github モード時)'
+        default: ''
+        required: false
       app_icon_base64:
         description: 'アプリアイコン (Base64 PNG)'
         default: ''
@@ -84,6 +88,8 @@ jobs:
         if: github.event.inputs.source_type == 'github'
         uses: actions/checkout@v4
         with:
+          repository: ${{ github.event.inputs.source_repo }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           path: source_repo_temp
           fetch-depth: 1
 
