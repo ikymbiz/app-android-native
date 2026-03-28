@@ -602,6 +602,8 @@
     const getIconForActions = async () => {
         if (isCustomIcon && currentIconBase64 && currentIconBase64.includes(',')) {
             // カスタムアイコンも512×512にリサイズしてサイズを抑制する
+            const origLen = currentIconBase64.length;
+            log(`🖼️ [icon] カスタムアイコン検出: 元データ長=${origLen}文字, Canvasで512x512にリサイズ中...`);
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
@@ -610,9 +612,14 @@
                     canvas.height = 512;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, 512, 512);
-                    resolve(canvas.toDataURL('image/png').split(',')[1]);
+                    const result = canvas.toDataURL('image/png').split(',')[1];
+                    log(`✅ [icon] リサイズ完了: ${origLen}文字 → ${result.length}文字 (約${Math.round(result.length*3/4/1024)}KB)`);
+                    resolve(result);
                 };
-                img.onerror = () => resolve(currentIconBase64.split(',')[1]);
+                img.onerror = (err) => {
+                    log(`⚠️ [icon] 画像読み込み失敗、元データをそのまま使用: ${err}`, 'log-war');
+                    resolve(currentIconBase64.split(',')[1]);
+                };
                 img.src = currentIconBase64;
             });
         }
@@ -1342,8 +1349,10 @@ jobs:
             }
 
             let iconForDispatch = pureBase64Icon;
+            const iconKB = iconForDispatch ? Math.round(iconForDispatch.length * 3 / 4 / 1024) : 0;
+            log(`🖼️ アイコン情報: isCustom=${isCustomIcon}, base64長=${iconForDispatch ? iconForDispatch.length : 0}文字 (約${iconKB}KB)`);
             if (iconForDispatch && iconForDispatch.length > 60000) {
-                log('⚠️ アイコンデータが大きすぎるため、dispatch inputから除外します。リポジトリにコミットします...', 'log-war');
+                log(`⚠️ アイコンデータが大きすぎます (${iconForDispatch.length}文字 / 閾値60000文字)。リポジトリにコミットします...`, 'log-war');
                 try {
                     let iconSha = null;
                     try {
