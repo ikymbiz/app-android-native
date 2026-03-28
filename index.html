@@ -1203,7 +1203,13 @@ jobs:
               mkdir -p "$RES_DIR/mipmap-\$dpi"
               cp temp_icon/icon.png "$RES_DIR/mipmap-\$dpi/ic_launcher.png" || true
               cp temp_icon/icon.png "$RES_DIR/mipmap-\$dpi/ic_launcher_round.png" || true
+              cp temp_icon/icon.png "$RES_DIR/mipmap-\$dpi/ic_launcher_foreground.png" || true
+              cp temp_icon/icon.png "$RES_DIR/mipmap-\$dpi/ic_launcher_background.png" || true
             done
+            # Adaptive Icon (anydpi-v26) をシンプルな非適応アイコンに上書きする
+            mkdir -p "$RES_DIR/mipmap-anydpi-v26"
+            printf '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@mipmap/ic_launcher_background"/><foreground android:drawable="@mipmap/ic_launcher_foreground"/></adaptive-icon>' > "$RES_DIR/mipmap-anydpi-v26/ic_launcher.xml"
+            printf '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@mipmap/ic_launcher_background"/><foreground android:drawable="@mipmap/ic_launcher_foreground"/></adaptive-icon>' > "$RES_DIR/mipmap-anydpi-v26/ic_launcher_round.xml"
           fi
           mkdir -p www/assets/icons
           cp temp_icon/icon.png www/assets/icons/icon.png || true
