@@ -51,6 +51,21 @@ jobs:
 
       - name: Configure Capacitor
         run: |
+          RAW_ID="${{ github.event.inputs.app_id }}"
+          # 各セグメントを検証・修正: 英字始まり、英数字のみ
+          SAFE_ID=$(echo "$RAW_ID" | tr '_' '' | awk -F. '{
+            for(i=1;i<=NF;i++){
+              seg=$i
+              # 数字始まりなら先頭に"a"を付与
+              if(seg ~ /^[0-9]/) seg="a"seg
+              # 英数字以外を除去
+              gsub(/[^a-zA-Z0-9]/,"",seg)
+              if(seg=="") seg="app"
+              printf "%s%s", (i>1?".":""), seg
+            }
+            print ""
+          }')
+          echo "パッケージID: $RAW_ID -> $SAFE_ID"
           node -e "
             const cfg = {
               appId: process.argv[1],
@@ -58,7 +73,7 @@ jobs:
               webDir: 'www'
             };
             require('fs').writeFileSync('capacitor.config.json', JSON.stringify(cfg, null, 2));
-          " "${{ github.event.inputs.app_id }}" "${{ github.event.inputs.app_name }}"
+          " "$SAFE_ID" "${{ github.event.inputs.app_name }}"
 
       - name: Install Capacitor
         run: |
