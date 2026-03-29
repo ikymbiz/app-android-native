@@ -23,6 +23,10 @@ on:
         description: '対象ファイル (カンマ区切り)'
         default: ''
         required: false
+      source_repo:
+        description: 'ソースリポジトリ (owner/repo 形式、github モード時)'
+        default: ''
+        required: false
       app_icon_base64:
         description: 'アプリアイコン (Base64 PNG)'
         default: ''
@@ -48,10 +52,13 @@ jobs:
       - name: Configure Capacitor
         run: |
           RAW_ID="${{ github.event.inputs.app_id }}"
+          # 各セグメントを検証・修正: 英字始まり、英数字のみ
           SAFE_ID=$(echo "$RAW_ID" | tr '_' '' | awk -F. '{
             for(i=1;i<=NF;i++){
               seg=$i
+              # 数字始まりなら先頭に"a"を付与
               if(seg ~ /^[0-9]/) seg="a"seg
+              # 英数字以外を除去
               gsub(/[^a-zA-Z0-9]/,"",seg)
               if(seg=="") seg="app"
               printf "%s%s", (i>1?".":""), seg
@@ -67,9 +74,6 @@ jobs:
             };
             require('fs').writeFileSync('capacitor.config.json', JSON.stringify(cfg, null, 2));
           " "$SAFE_ID" "${{ github.event.inputs.app_name }}"
-          echo "--- capacitor.config.json ---"
-          cat capacitor.config.json
-          echo "---"
 
       - name: Install Capacitor
         run: |
@@ -99,6 +103,8 @@ jobs:
         if: github.event.inputs.source_type == 'github'
         uses: actions/checkout@v4
         with:
+          repository: ${{ github.event.inputs.source_repo }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           path: source_repo_temp
           fetch-depth: 1
 
@@ -152,9 +158,6 @@ jobs:
 
       - name: Android Platform Setup
         run: |
-          echo "--- capacitor.config.json (before cap add) ---"
-          cat capacitor.config.json
-          echo "---"
           npx cap add android
           npx cap sync android
 
@@ -174,6 +177,8 @@ jobs:
           fi
           RES_DIR="android/app/src/main/res"
           if [ -d "$RES_DIR" ]; then
+            # mipmap-anydpi-v26を削除してAdaptive Iconを無効化し、密度別PNGを使わせる
+            rm -rf "$RES_DIR/mipmap-anydpi-v26"
             for dpi in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
               mkdir -p "$RES_DIR/mipmap-$dpi"
               cp temp_icon/icon.png "$RES_DIR/mipmap-$dpi/ic_launcher.png" || true
@@ -182,21 +187,13 @@ jobs:
           fi
           mkdir -p www/assets/icons
           cp temp_icon/icon.png www/assets/icons/icon.png || true
-          node -e "
-            const m = {
-              name: process.argv[1],
-              short_name: process.argv[1],
-              display: 'standalone',
-              icons: [{src:'assets/icons/icon.png',sizes:'512x512',type:'image/png'}]
-            };
-            require('fs').writeFileSync('www/manifest.json', JSON.stringify(m));
-          " "${{ github.event.inputs.app_name }}"
+          printf '{"name":"%s","short_name":"%s","display":"standalone","icons":[{"src":"assets/icons/icon.png","sizes":"512x512","type":"image/png"}]}' "${{ github.event.inputs.app_name }}" "${{ github.event.inputs.app_name }}" > www/manifest.json
 
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon -x lint
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
